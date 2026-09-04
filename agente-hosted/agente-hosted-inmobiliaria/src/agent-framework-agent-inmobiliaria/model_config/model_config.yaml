@@ -1,0 +1,125 @@
+name: inmobiliaria-model-config
+version: 2.0.0
+description: >
+  Configuración del agente inmobiliario de Alpha State: identidad, modelo y
+  herramientas. El system prompt vive aparte en prompt/system_prompt.yaml y
+  solo contiene las instrucciones; los valores de esta sección se inyectan en
+  sus placeholders ({bot_name}, {empresa}, {ciudad}, {moneda_catalogo}).
+
+# Identidad que se inyecta en el system prompt.
+agent:
+  bot_name: Alpha
+  empresa: Alpha State
+  ciudad: Campinas (São Paulo, Brasil)
+  # Cómo debe hablar el agente de la moneda del catálogo.
+  moneda_catalogo: reales brasileños (BRL), que se escriben como R$
+  description: Asesor inmobiliario virtual de Alpha State
+
+# Modelo desplegado en el proyecto de Foundry.
+model:
+  # La variable de entorno AZURE_AI_MODEL_DEPLOYMENT_NAME (que azd fija en el
+  # despliegue) tiene prioridad sobre este valor por defecto.
+  deployment_name: gpt-5.4-mini
+  # Opciones que se pasan en cada llamada (ChatOptions de Agent Framework).
+  options:
+    # El historial lo gestiona el host de Foundry / la AgentSession en memoria.
+    store: false
+    # gpt-5.x no admite temperature/top_p; si cambias a gpt-4o-mini puedes añadir:
+    # temperature: 0.3
+    # max_tokens: 800
+
+# Herramientas (function calling). El nombre de cada clave es el nombre EXACTO
+# de la tool que ve el modelo y que se cita en el system prompt.
+tools:
+  buscar_propiedades_alquiler:
+    enabled: true
+    # google_sheets: lee la hoja de Google Sheets de la inmobiliaria.
+    # csv_local:     lee data/propiedades_alquiler_ejemplo.csv (demo sin internet / pruebas).
+    origen: google_sheets
+    google_sheets:
+      # El ID de la hoja va en la variable de entorno GOOGLE_SHEETS_ID
+      # (es la parte de la URL entre /d/ y /edit).
+      spreadsheet_id_env: GOOGLE_SHEETS_ID
+      # Pestaña a leer. Con hoja pública se usa el gid (número al final de la URL,
+      # #gid=0). Con cuenta de servicio se usa el nombre de la pestaña.
+      gid: 0
+      worksheet: Departamentos
+      # Si la hoja NO es pública, define GOOGLE_SERVICE_ACCOUNT_JSON con el
+      # contenido del JSON de la cuenta de servicio y comparte la hoja con su email.
+      service_account_json_env: GOOGLE_SERVICE_ACCOUNT_JSON
+    csv_local:
+      ruta: data/propiedades_alquiler_ejemplo.csv
+    # Segundos que se mantiene en memoria la hoja antes de volver a leerla.
+    cache_ttl_segundos: 60
+    # Máximo de propiedades que se devuelven al modelo por consulta.
+    max_resultados: 5
+    # Moneda de los precios cuando la hoja no tiene columna de moneda.
+    moneda_por_defecto: BRL
+    # Si el modelo pasa una de estas zonas amplias como "distrito", no se filtra por barrio.
+    zonas_ignoradas: [Campinas, São Paulo, Sao Paulo, Brasil, Brazil]
+    # Solo se muestran filas cuyo estado sea uno de estos valores (vacío = todas).
+    # La hoja actual no tiene columna de estado: todas las filas se consideran disponibles.
+    estados_disponibles: [disponible, libre, si, sí, true, "1"]
+    # Correspondencia campo canónico -> cabecera de la hoja "Inmuebles en Alquiler - Alpha State V2".
+    # Los campos sin cabecera (null) se buscan por su nombre canónico o se omiten.
+    # Las columnas de la hoja que no aparecen aquí (IPTU Mensual, Agua / SANASA) se
+    # devuelven igualmente al modelo.
+    columnas:
+      id: ID Inmueble
+      titulo: null            # se construye como "<tipo> en <barrio>"
+      tipo: Tipo
+      distrito: Barrio
+      direccion: Dirección
+      dormitorios: Habitaciones
+      banos: Baños
+      area_m2: Metros Cuadrados
+      precio: Alquiler Mensual (BRL)
+      moneda: null            # usa moneda_por_defecto
+      amoblado: Estado Amoblado
+      mascotas: null
+      estacionamiento: Cocheras
+      estado: null
+      descripcion: null
+      link: null
+
+  consultar_politicas_alpha_state:
+    enabled: true
+    # Knowledge base de Foundry IQ (Azure AI Search) creada con rag/crear_base_conocimiento.py.
+    search_endpoint: https://srch-alphastate-datapath.search.windows.net
+    knowledge_base: alpha-state-kb
+    api_version: 2026-08-01-preview
+    # Fragmentos máximos que se devuelven al modelo y tamaño máximo de la respuesta de retrieve.
+    max_fragmentos: 5
+    max_output_size_tokens: 8000   # el servicio exige más de 5000
+
+# Memoria de Foundry (preview): hechos estables de cada cliente entre conversaciones.
+# El store se crea una vez con memoria/crear_memory_store.py; el agente lo usa vía
+# FoundryMemoryProvider. La variable de entorno MEMORY_STORE_NAME tiene prioridad.
+memory:
+  enabled: true
+  store_name: alpha_state_memory
+  description: Memoria de clientes y posibles clientes del agente inmobiliario de Alpha State (Campinas).
+  # Modelos que Foundry usa para extraer e indexar recuerdos.
+  chat_model: gpt-5-mini
+  embedding_model: text-embedding-3-small
+  chat_summary_enabled: true
+  # Qué debe recordar (y qué no) del cliente.
+  user_profile_details: >
+    Recordar el nombre del cliente, cómo prefiere que lo contacten (teléfono o
+    correo) y en qué horario, qué operación busca (alquilar, comprar, vender o
+    poner en alquiler), tipo de inmueble, barrios de interés, presupuesto
+    aproximado y moneda, número de dormitorios, si tiene mascotas, si necesita
+    amoblado o estacionamiento, plazo para mudarse, las propiedades que le
+    interesaron (por su id) y las que descartó con su motivo. No guardar
+    documentos de identidad, datos bancarios, ingresos exactos, direcciones
+    personales ni información sensible. Redacta cada recuerdo en español.
+  # "{{$userId}}" lo resuelve el host de Foundry con la identidad del usuario que
+  # llama (o la cabecera x-memory-user-id). En local, chat_local.py usa MEMORY_SCOPE.
+  scope: "{{$userId}}"
+  # Segundos de inactividad antes de consolidar la memoria (0 = inmediato).
+  update_delay: 60
+  context_prompt: |
+    ## Lo que recuerdas de este cliente
+    Datos de conversaciones anteriores con este mismo cliente. Úsalos como
+    conocimiento propio, sin citarlos ni mencionar que los recuerdas de otra
+    charla salvo que el cliente lo pregunte:

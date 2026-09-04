@@ -1,0 +1,26 @@
+# Entornos virtuales y caches de Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Secretos y configuración local (NUNCA subir)
+.env
+.env.*
+!.env.example
+*.env.lock
+**/datapath-ai17-*.json
+**/*service*account*.json
+**/*credentials*.json
+
+# Estado local de Azure Developer CLI (azd)
+.azure/
+
+# Claude Code: ajustes locales
+.claude/settings.local.json
+
+# Sistema operativo / IDE
+.DS_Store
+.vscode/
+.idea/

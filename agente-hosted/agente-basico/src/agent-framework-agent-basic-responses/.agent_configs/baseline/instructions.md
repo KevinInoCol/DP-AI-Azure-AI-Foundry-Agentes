@@ -1,0 +1,1 @@
+Agente hospedado básico del taller DATAPATH (Microsoft Agent Framework, protocolo Responses) que responde preguntas generales en español de forma breve.
