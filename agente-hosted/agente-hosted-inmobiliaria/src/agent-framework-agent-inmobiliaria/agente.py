@@ -30,10 +30,11 @@ from typing import Any
 
 import yaml
 from agent_framework import Agent
-from agent_framework.foundry import FoundryChatClient, FoundryMemoryProvider
+from agent_framework.foundry import FoundryChatClient
 from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
 
+from memoria.proveedor import MemoriaPorCliente
 from tools import BaseConocimiento, CatalogoAlquileres, crear_tool_buscar_propiedades, crear_tool_consultar_politicas
 
 load_dotenv()
@@ -113,10 +114,10 @@ def crear_tools(cfg: dict[str, Any]) -> list:
 def crear_context_providers(cfg: dict[str, Any], client: FoundryChatClient, scope_memoria: str | None = None) -> list:
     """Memoria de Foundry (preview) si está habilitada en model_config.yaml.
 
-    `scope` aísla los recuerdos por cliente. En Foundry el valor "{{$userId}}" lo
-    resuelve el host con la identidad del usuario que llama; en local hay que
-    pasar un scope explícito (chat_local.py usa la variable MEMORY_SCOPE).
-    Reutiliza el AIProjectClient del chat client (creado con allow_preview=True).
+    El ámbito (scope) aísla los recuerdos por cliente y lo resuelve MemoriaPorCliente
+    en cada petición: scope explícito (local, MEMORY_SCOPE) > cabecera x-agent-user-id
+    que inyecta la plataforma > memory.scope_por_defecto. Reutiliza el
+    AIProjectClient del chat client (creado con allow_preview=True).
     """
     cfg_mem = cfg.get("memory", {})
     if not cfg_mem.get("enabled", False):
@@ -124,10 +125,11 @@ def crear_context_providers(cfg: dict[str, Any], client: FoundryChatClient, scop
     if not cfg_mem.get("store_name"):
         raise RuntimeError("memory.enabled=true pero falta memory.store_name (o MEMORY_STORE_NAME)")
     return [
-        FoundryMemoryProvider(
+        MemoriaPorCliente(
             project_client=client.project_client,
             memory_store_name=cfg_mem["store_name"],
-            scope=scope_memoria or cfg_mem.get("scope", "{{$userId}}"),
+            scope_fijo=scope_memoria,
+            scope_por_defecto=cfg_mem.get("scope_por_defecto", "cliente-sin-identificar"),
             context_prompt=cfg_mem.get("context_prompt"),
             update_delay=int(cfg_mem.get("update_delay", 300)),
         )

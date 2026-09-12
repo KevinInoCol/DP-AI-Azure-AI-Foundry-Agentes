@@ -1,0 +1,35 @@
+# Memoria de Foundry (preview): hechos estables de cada cliente entre conversaciones.
+# El store se crea una vez con memoria/crear_memory_store.py; el agente lo usa vía
+# FoundryMemoryProvider. La variable de entorno MEMORY_STORE_NAME tiene prioridad.
+memory:
+  enabled: true
+  store_name: alpha_state_memory
+  description: Memoria de clientes y posibles clientes del agente inmobiliario de Alpha State (Campinas).
+  # Modelos que Foundry usa para extraer e indexar recuerdos.
+  chat_model: gpt-5-mini
+  embedding_model: text-embedding-3-small
+  chat_summary_enabled: true
+  # Qué debe recordar (y qué no) del cliente.
+  user_profile_details: >
+    Recordar el nombre del cliente, cómo prefiere que lo contacten (teléfono o
+    correo) y en qué horario, qué operación busca (alquilar, comprar, vender o
+    poner en alquiler), tipo de inmueble, barrios de interés, presupuesto
+    aproximado y moneda, número de dormitorios, si tiene mascotas, si necesita
+    amoblado o estacionamiento, plazo para mudarse, las propiedades que le
+    interesaron (por su id) y las que descartó con su motivo. No guardar
+    documentos de identidad, datos bancarios, ingresos exactos, direcciones
+    personales ni información sensible. Redacta cada recuerdo en español.
+  # Ámbito (scope) de los recuerdos = identificador del cliente. Lo resuelve
+  # memoria/proveedor.py en cada petición: en local MEMORY_SCOPE (chat_local.py);
+  # en Foundry la cabecera x-agent-user-id (usuario del playground, o
+  # `azd ai agent invoke --user-identity <id>`, o el id del cliente que envíe tu canal);
+  # si no llega ninguna, este valor por defecto. Es el texto que se escribe en el
+  # filtro "Ámbito" de Compilación → Memoria para ver los recuerdos.
+  scope_por_defecto: cliente-sin-identificar
+  # Segundos de inactividad antes de consolidar la memoria (0 = inmediato).
+  update_delay: 60
+  context_prompt: |
+    ## Lo que recuerdas de este cliente
+    Datos de conversaciones anteriores con este mismo cliente. Úsalos como
+    conocimiento propio, sin citarlos ni mencionar que los recuerdas de otra
+    charla salvo que el cliente lo pregunte:

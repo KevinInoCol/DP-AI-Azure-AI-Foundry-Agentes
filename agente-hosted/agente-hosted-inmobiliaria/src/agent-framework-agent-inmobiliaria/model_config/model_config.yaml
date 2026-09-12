@@ -113,9 +113,13 @@ memory:
     interesaron (por su id) y las que descartó con su motivo. No guardar
     documentos de identidad, datos bancarios, ingresos exactos, direcciones
     personales ni información sensible. Redacta cada recuerdo en español.
-  # "{{$userId}}" lo resuelve el host de Foundry con la identidad del usuario que
-  # llama (o la cabecera x-memory-user-id). En local, chat_local.py usa MEMORY_SCOPE.
-  scope: "{{$userId}}"
+  # Ámbito (scope) de los recuerdos = identificador del cliente. Lo resuelve
+  # memoria/proveedor.py en cada petición: en local MEMORY_SCOPE (chat_local.py);
+  # en Foundry la cabecera x-agent-user-id (usuario del playground, o
+  # `azd ai agent invoke --user-identity <id>`, o el id del cliente que envíe tu canal);
+  # si no llega ninguna, este valor por defecto. Es el texto que se escribe en el
+  # filtro "Ámbito" de Compilación → Memoria para ver los recuerdos.
+  scope_por_defecto: cliente-sin-identificar
   # Segundos de inactividad antes de consolidar la memoria (0 = inmediato).
   update_delay: 60
   context_prompt: |

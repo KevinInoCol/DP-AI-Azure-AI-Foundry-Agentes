@@ -1,6 +1,6 @@
 ---
-name: foundry-hosted-agent-deploy
-description: Crea, prueba en local y despliega un agente hospedado (hosted agent) en Microsoft Foundry / Azure AI Foundry usando azd (Azure Developer CLI) y una plantilla oficial (Microsoft Agent Framework, LangGraph, OpenAI Agents SDK, etc.), apuntando a un proyecto de Foundry existente. Incluye instalación de prerequisitos (azd + extensión microsoft.foundry, auth reutilizando Azure CLI), verificación de cuota del modelo, scaffold, ajustes de azure.yaml, venv correcto, prueba local, azd deploy, invocación remota y solución de problemas. Use when the user asks to "programar un agente", "desplegar un agente hospedado", "hosted agent", "azd ai agent init", "agente con Agent Framework/LangGraph en Foundry", "subir mi agente a Foundry", or types /foundry-hosted-agent-deploy.
+name: azure-foundry-hosted-agent-deploy
+description: Crea, prueba en local y despliega un agente hospedado (hosted agent) en Microsoft Foundry / Azure AI Foundry usando azd (Azure Developer CLI) y una plantilla oficial (Microsoft Agent Framework, LangGraph, OpenAI Agents SDK, etc.), apuntando a un proyecto de Foundry existente. Incluye instalación de prerequisitos (azd + extensión microsoft.foundry, auth reutilizando Azure CLI), verificación de cuota del modelo, scaffold, ajustes de azure.yaml, venv correcto, prueba local, azd deploy, invocación remota y solución de problemas. Use when the user asks to "programar un agente", "desplegar un agente hospedado", "hosted agent", "azd ai agent init", "agente con Agent Framework/LangGraph en Foundry", "subir mi agente a Foundry", or types /azure-foundry-hosted-agent-deploy.
 ---
 
 # Desplegar un agente hospedado en Microsoft Foundry con azd

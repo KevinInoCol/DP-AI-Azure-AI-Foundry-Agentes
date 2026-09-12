@@ -11,6 +11,7 @@ Asesor inmobiliario virtual de **Alpha State**, construido con [Microsoft Agent 
 | Configuración del modelo | `model_config/model_config.yaml`: identidad, modelo, opciones y tools |
 | Modelo | `gpt-5.4-mini` (SKU `DataZoneStandard`) en el proyecto `datapath-inofuente` |
 | Identidad | Bot "Alpha", Alpha State, Campinas (Brasil), catálogo en reales (BRL) |
+| Guardrail | `alpha-state-guardrail` asignado al agente vía `policies` en azure.yaml |
 
 Para **alquileres** el agente consulta el catálogo real y presenta hasta 5 propiedades. Para **compra y venta** no tiene catálogo: entiende la necesidad y recoge los datos de contacto para que un asesor humano llame. Nunca inventa propiedades, precios ni disponibilidad.
 
@@ -27,6 +28,7 @@ agente-hosted-inmobiliaria/
     ├── model_config/model_config.yaml  # identidad (Alpha, Alpha State, Lima), modelo, opciones, tools
     ├── prompt/system_prompt.yaml       # instrucciones del asesor (placeholders {bot_name} {empresa} {ciudad})
     ├── memoria/crear_memory_store.py   # crea el memory store de Foundry (idempotente)
+    ├── memoria/proveedor.py            # MemoriaPorCliente: scope por petición (MEMORY_SCOPE / x-agent-user-id / por defecto)
     ├── tools/google_sheets.py          # CatalogoAlquileres + tool buscar_propiedades_alquiler
     ├── tools/knowledge_base.py         # BaseConocimiento + tool consultar_politicas_alpha_state (retrieve de Foundry IQ)
     ├── data/propiedades_alquiler_ejemplo.csv  # plantilla de la hoja / datos de demo
@@ -86,9 +88,17 @@ El agente recuerda a cada cliente entre conversaciones con **Memoria de Foundry*
 
 - **Qué guarda**: hechos estables del cliente (nombre, forma y horario de contacto, operación, barrios, presupuesto, dormitorios, mascotas, propiedades que le interesaron o descartó). La sección `user_profile_details` le dice a Foundry qué extraer y qué no guardar (documentos, datos bancarios, ingresos, direcciones personales). Los recuerdos se consolidan tras `update_delay` segundos de inactividad.
 - **Cómo se usa**: `agente.py` añade un `FoundryMemoryProvider` (Agent Framework) como `context_provider`. Antes de cada respuesta busca recuerdos relevantes y los inyecta en el contexto con el texto de `context_prompt`; después de cada turno envía la conversación al store. El `FoundryChatClient` se crea con `allow_preview=True` para compartir su `AIProjectClient`.
-- **Aislamiento por cliente**: el `scope` es `{{$userId}}`. En Foundry, el host lo sustituye por la identidad del usuario que llama (o por la cabecera `x-memory-user-id` si tu canal la envía). En local, `chat_local.py` usa la variable `MEMORY_SCOPE` (por defecto `cliente-local`); cambia su valor para simular clientes distintos.
+- **Aislamiento por cliente**: el ámbito (`scope`) lo resuelve `memoria/proveedor.py` en cada petición: en local el valor de `MEMORY_SCOPE` (`chat_local.py`, por defecto `cliente-local`); en Foundry la cabecera `x-agent-user-id` que inyecta la plataforma con la identidad del usuario que llama (playground) o con `azd ai agent invoke --user-identity <id>` en local; si no llega ninguna, `memory.scope_por_defecto` (`cliente-sin-identificar`). El servicio registra en el log `Memoria de Foundry: scope=...`. Un canal propio (WhatsApp, web) debe enviar el id del cliente en esa cabecera.
+- **Ver los recuerdos en el portal**: Compilación → Memoria → `alpha_state_memory` → Memorias, y escribe el ámbito exacto en el filtro "Ámbito" (el texto `{{$userId}}` que aparece por defecto es un marcador, no un ámbito real). Por ejemplo `cliente-mariana` tras una prueba local con `--user-identity cliente-mariana`; para lo que hablas tú en el playground o con `azd ai agent invoke`, el ámbito es el object ID de tu usuario de Entra (`az ad signed-in-user show --query id -o tsv`). También con el SDK: `project_client.beta.memory_stores.list_memories(name, scope)`.
+- **Para probar de verdad la memoria** usa conversaciones distintas: `azd ai agent invoke --new-conversation --new-session "..."`. `--new-session` solo no basta: azd reutiliza la conversación guardada y el "recuerdo" vendría del historial.
 - **Permisos**: la identidad administrada del proyecto, la identidad del agente hospedado y tu usuario necesitan **Foundry User** y **Cognitive Services OpenAI User** en el recurso de Foundry (el servicio de memoria usa los modelos `gpt-5-mini` y `text-embedding-3-small`). Sin ellos, las escrituras o búsquedas fallan con 401.
-- **Prueba**: en local, ejecuta `chat_local.py`, preséntate y cierra; vuelve a abrirlo con el mismo `MEMORY_SCOPE` y pregunta "¿recuerdas qué buscaba?". En Foundry, `azd ai agent invoke --new-session "..."` dos veces.
+- **Prueba**: en local, ejecuta `chat_local.py`, preséntate y cierra; vuelve a abrirlo con el mismo `MEMORY_SCOPE` y pregunta "¿recuerdas qué buscaba?". En Foundry, `azd ai agent invoke --new-conversation --new-session "..."` dos veces, esperando más de `update_delay` segundos entre ambas.
+
+## Límites de protección (Guardrails)
+
+El agente tiene asignado el guardrail `alpha-state-guardrail` (política RAI del recurso de Foundry), declarado en `azure.yaml` bajo `policies` para que cada `azd deploy` lo conserve. Filtra la entrada del usuario y la salida final antes y después del contenedor: odio, sexual, autolesión y violencia en umbral medio, ataques al prompt e indirectos y material protegido. Un mensaje bloqueado devuelve HTTP 400 con código `content_filter` y no llega al código. Los modelos siguen con `Microsoft.DefaultV2`.
+
+La política se creó por REST (`az rest --method put .../raiPolicies/alpha-state-guardrail`) porque la creada desde el asistente del portal bloqueaba todos los mensajes. Verificación: leer `definition.rai_config` de la versión y probar un mensaje benigno (200) y uno violento (400). Detalles en la skill `azure-foundry-guardrails`.
 
 ## Prerequisitos
 

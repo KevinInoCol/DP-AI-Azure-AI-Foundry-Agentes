@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>[TÍTULO DE LA SESIÓN] · Datapath</title>
+<meta name="description" content="[RESUMEN DE UNA FRASE: programa, sesión y temas que cubre]">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#161719; --panel:#1D1F22; --panel2:#242629; --deep:#101113;
+  --line:#2E3136; --line2:#3A3E44;
+  --ink:#F4F5F6; --body:#C4C8CE; --muted:#878C94;
+  --coral:#FF7A50; --coral-d:#E2603A; --coral-t:rgba(255,122,80,.13);
+  --mint:#6FD3C7; --amber:#F0B85C; --rose:#F0776E;
+  --disp:"Outfit",system-ui,sans-serif;
+  --sans:"Inter",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,monospace;
+  --rail:272px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--body);font-family:var(--sans);font-size:15.5px;line-height:1.72;-webkit-font-smoothing:antialiased}
+::selection{background:var(--coral);color:#141517}
+a{color:var(--coral)}
+
+/* ---------- estructura ---------- */
+.shell{display:flex;min-height:100vh}
+.rail{width:var(--rail);flex:0 0 var(--rail);background:var(--deep);border-right:1px solid var(--line);position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column}
+.mark{padding:26px 24px 20px;border-bottom:1px solid var(--line)}
+.mark .logo{display:flex;align-items:center;gap:9px;margin-bottom:18px}
+.mark .logo svg{display:block}
+.mark .logo span{font-family:var(--disp);font-size:19px;font-weight:600;color:var(--ink);letter-spacing:-.02em}
+.mark .course{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--coral);margin:0 0 8px}
+.mark h1{font-family:var(--disp);font-size:19px;font-weight:600;color:var(--ink);line-height:1.3;margin:0 0 6px;letter-spacing:-.01em}
+.mark p{font-size:12.5px;color:var(--muted);margin:0}
+.toc{padding:14px 0 50px}
+.toc .grp{font-family:var(--mono);font-size:9.5px;letter-spacing:.17em;text-transform:uppercase;color:#5D626A;padding:18px 24px 8px}
+.toc a{display:flex;gap:12px;align-items:baseline;padding:7px 24px;color:var(--body);text-decoration:none;font-size:13.6px;line-height:1.4;border-left:2px solid transparent;transition:color .18s,background .18s,border-color .18s}
+.toc a:hover{background:#191A1D;color:var(--ink)}
+.toc a .n{font-family:var(--mono);font-size:10.5px;color:#5D626A;flex:0 0 20px;transition:color .18s}
+.toc a.on{color:var(--ink);border-left-color:var(--coral);background:linear-gradient(90deg,var(--coral-t),transparent)}
+.toc a.on .n{color:var(--coral)}
+
+.stage{flex:1;min-width:0}
+.bar{position:sticky;top:0;z-index:30;background:rgba(22,23,25,.88);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;padding:11px 44px}
+.bar .where{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--muted);margin-right:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .go{border:1px solid var(--line2);background:transparent;color:var(--body);font-family:var(--sans);font-size:12.5px;font-weight:500;border-radius:7px;padding:7px 13px;cursor:pointer;transition:all .18s}
+.bar .go:hover{border-color:var(--coral);color:var(--coral)}
+.bar .rule{position:absolute;left:0;bottom:-1px;height:2px;width:0;background:var(--coral)}
+.menu{display:none}
+.page{max-width:1040px;margin:0 auto;padding:0 44px 160px}
+
+/* ---------- portada ---------- */
+.cover{position:relative;overflow:hidden;background:#0E0F11;border-radius:22px;margin:26px 0 12px;padding:56px 46px 52px;border:1px solid var(--line)}
+.cover .stripes{position:absolute;inset:0;pointer-events:none}
+.cover .stripes i{position:absolute;right:-14%;height:44px;width:62%;transform:skewX(-24deg);border-radius:3px}
+.cover .stripes i:nth-child(1){top:34px;background:var(--coral)}
+.cover .stripes i:nth-child(2){top:104px;background:#2C2F34}
+.cover .stripes i:nth-child(3){top:174px;background:var(--coral);opacity:.85}
+.cover .stripes i:nth-child(4){top:244px;background:#2C2F34}
+.cover .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--coral);margin:0 0 18px;position:relative}
+.cover h2{font-family:var(--disp);font-size:52px;font-weight:700;color:var(--ink);line-height:1.04;letter-spacing:-.035em;margin:0 0 20px;max-width:13ch;position:relative}
+.cover .sub{font-size:17px;color:var(--body);max-width:50ch;margin:0 0 28px;position:relative;line-height:1.66}
+.cover .meta{display:flex;gap:26px;flex-wrap:wrap;position:relative}
+.cover .meta div{border-left:2px solid var(--coral);padding-left:12px}
+.cover .meta b{display:block;font-family:var(--disp);font-size:17px;color:var(--ink);font-weight:600}
+.cover .meta span{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+
+/* ---------- secciones ---------- */
+section{padding:64px 0 8px;scroll-margin-top:70px}
+section+section{border-top:1px solid var(--line)}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--coral);margin:0 0 14px}
+h3{font-family:var(--disp);font-size:34px;font-weight:600;color:var(--ink);letter-spacing:-.025em;line-height:1.16;margin:0 0 18px;max-width:22ch}
+h4{font-family:var(--disp);font-size:19px;font-weight:600;color:var(--ink);margin:38px 0 10px;letter-spacing:-.01em}
+p{margin:0 0 16px;max-width:74ch}
+.lead{font-size:17.5px;color:var(--ink);line-height:1.62;max-width:66ch;font-weight:400}
+strong{color:var(--ink);font-weight:600}
+em.q{font-style:normal;color:var(--coral)}
+ul{margin:0 0 18px;padding-left:22px;max-width:74ch}
+li{margin-bottom:9px}
+li::marker{color:var(--coral)}
+code{font-family:var(--mono);font-size:13px;background:var(--panel2);border-radius:5px;padding:2px 6px;color:var(--ink)}
+
+/* ---------- figuras ---------- */
+figure{margin:26px 0 30px;background:var(--panel);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+figure .canvas{padding:20px 22px;background:radial-gradient(120% 140% at 20% 0%,#1F2226 0%,#141518 70%)}
+figure svg{display:block;width:100%;height:auto}
+figcaption{border-top:1px solid var(--line);padding:13px 22px;font-size:13.2px;color:var(--muted);line-height:1.6}
+figcaption b{color:var(--body);font-weight:600}
+.dt{fill:#EDEFF2;font-family:"Inter",sans-serif;font-size:14px;font-weight:600}
+.ds{fill:#B9BEC6;font-family:"Inter",sans-serif;font-size:12.5px}
+.dm{fill:#7C828B;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em}
+.dc{fill:#FF7A50;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.06em}
+.box{fill:#1C1F23;stroke:#34383F;stroke-width:1.4}
+.box.hi{fill:rgba(255,122,80,.12);stroke:#FF7A50;stroke-width:1.8}
+.box.mute{fill:#17191C;stroke:#282B30}
+.ln{stroke:#3A3E45;stroke-width:1.6;fill:none}
+.ln.on{stroke:#FF7A50;stroke-width:2}
+.ln.dash{stroke-dasharray:5 6}
+
+/* ---------- llamadas ---------- */
+.note{border-left:3px solid var(--coral);background:linear-gradient(90deg,var(--coral-t),rgba(255,122,80,.02));border-radius:0 12px 12px 0;padding:16px 20px;margin:24px 0;max-width:78ch}
+.note.warn{border-left-color:var(--amber);background:linear-gradient(90deg,rgba(240,184,92,.11),transparent)}
+.note.stop{border-left-color:var(--rose);background:linear-gradient(90deg,rgba(240,119,110,.11),transparent)}
+.note b{display:block;font-family:var(--disp);font-size:15px;color:var(--ink);margin-bottom:4px;font-weight:600}
+.note p{margin:0;font-size:14.4px;max-width:none}
+
+/* ---------- rejillas ---------- */
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:24px 0}
+.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:24px 0}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 19px}
+.tile .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--coral);margin-bottom:9px}
+.tile h5{font-family:var(--disp);font-size:16px;font-weight:600;color:var(--ink);margin:0 0 7px}
+.tile p{font-size:13.8px;margin:0;color:var(--body);line-height:1.6}
+.formula{background:var(--deep);border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin:22px 0;font-family:var(--mono);font-size:14px;color:var(--ink);line-height:2.1;overflow-x:auto}
+.formula .lbl{color:var(--muted);font-size:11px;letter-spacing:.13em;text-transform:uppercase}
+.formula .hl{color:var(--coral)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 6px}
+.chip{font-family:var(--mono);font-size:13.5px;padding:7px 11px;border-radius:8px;border:1px solid var(--line2);background:var(--panel2);color:var(--ink)}
+.chip.c{border-color:rgba(255,122,80,.5);background:rgba(255,122,80,.12);color:#FFB496}
+.chip.m{border-color:rgba(111,211,199,.4);background:rgba(111,211,199,.1);color:#9FE4DA}
+.count{font-family:var(--mono);font-size:11.5px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:24px 0}
+th{text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:500;padding:10px 12px;border-bottom:1px solid var(--line2)}
+td{padding:12px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--body)}
+td strong{color:var(--ink)}
+tr:last-child td{border-bottom:0}
+.links{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin:24px 0}
+.links a{display:flex;gap:13px;align-items:center;text-decoration:none;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:15px 17px;transition:border-color .2s,transform .2s}
+.links a:hover{border-color:var(--coral);transform:translateY(-2px)}
+.links .ic{width:36px;height:36px;border-radius:10px;background:var(--coral-t);display:grid;place-items:center;font-size:18px;flex:0 0 36px}
+.links b{display:block;font-family:var(--disp);font-size:14.5px;color:var(--ink);font-weight:600}
+.links span{font-family:var(--mono);font-size:11px;color:var(--muted);word-break:break-all}
+
+/* ---------- cuestionario ---------- */
+.quiz{background:var(--panel);border:1px solid var(--line);border-radius:20px;overflow:hidden;margin-top:28px}
+.qtop{display:flex;align-items:center;gap:16px;padding:18px 22px;border-bottom:1px solid var(--line);background:var(--deep)}
+.qtop .idx{font-family:var(--disp);font-size:16px;font-weight:600;color:var(--ink);margin-right:auto}
+.qtop .idx small{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:400;margin-top:2px}
+.qtop .score{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.pips{display:flex;gap:5px}
+.pips i{width:26px;height:4px;border-radius:2px;background:#33373E;display:block;transition:background .3s}
+.pips i.now{background:var(--coral)}
+.pips i.ok{background:var(--mint)}
+.pips i.no{background:var(--rose)}
+.qbody{padding:26px 24px}
+.qtag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--coral);margin:0 0 12px}
+.qq{font-family:var(--disp);font-size:22px;font-weight:600;color:var(--ink);line-height:1.35;margin:0 0 20px;max-width:60ch}
+.opts{display:flex;flex-direction:column;gap:10px}
+.opt{display:flex;gap:14px;align-items:flex-start;text-align:left;background:var(--panel2);border:1.5px solid var(--line);border-radius:12px;padding:14px 16px;font-family:var(--sans);font-size:14.5px;color:var(--body);cursor:pointer;line-height:1.55;transition:border-color .18s,transform .18s,background .18s}
+.opt:hover:not(:disabled){border-color:var(--coral);transform:translateX(3px)}
+.opt .k{font-family:var(--mono);font-size:12px;color:var(--muted);flex:0 0 16px;padding-top:2px}
+.opt:disabled{cursor:default}
+.opt.right{border-color:var(--mint);background:rgba(111,211,199,.1);color:#C9EFE9}
+.opt.right .k{color:var(--mint)}
+.opt.wrong{border-color:var(--rose);background:rgba(240,119,110,.1);color:#F5C9C5}
+.opt.wrong .k{color:var(--rose)}
+.opt.off{opacity:.42}
+.fb{margin-top:20px;border-radius:12px;padding:16px 18px;font-size:14.2px;border-left:3px solid;display:none;line-height:1.65}
+.fb.show{display:block}
+.fb.y{border-color:var(--mint);background:rgba(111,211,199,.08)}
+.fb.n{border-color:var(--rose);background:rgba(240,119,110,.08)}
+.fb b{display:block;font-family:var(--disp);font-size:15px;color:var(--ink);margin-bottom:4px}
+.qfoot{padding:15px 22px;border-top:1px solid var(--line);background:var(--deep);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.qfoot .hint{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-right:auto}
+.btn{border:1px solid var(--coral);background:var(--coral);color:#141517;font-family:var(--sans);font-size:13.5px;font-weight:600;border-radius:9px;padding:9px 18px;cursor:pointer;transition:all .18s}
+.btn:hover{background:var(--coral-d);border-color:var(--coral-d)}
+.btn.ghost{background:transparent;color:var(--body);border-color:var(--line2)}
+.btn.ghost:hover{border-color:var(--coral);color:var(--coral);background:transparent}
+.result{text-align:center;padding:32px 20px}
+.result .big{font-family:var(--disp);font-size:68px;font-weight:700;color:var(--ink);line-height:1;letter-spacing:-.04em}
+.result .of{font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-top:8px}
+.result .msg{font-size:15px;max-width:52ch;margin:20px auto 0;color:var(--body)}
+.review{text-align:left;max-width:60ch;margin:26px auto 0}
+.review .item{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px;font-size:13.6px}
+.review .item b{display:block;color:var(--ink);margin-bottom:6px;font-weight:600}
+.review .bad{color:var(--rose)}
+.review .good{color:var(--mint)}
+.foot{margin-top:70px;padding-top:26px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#5D626A}
+
+
+/* ---------- movimiento ---------- */
+@keyframes stripeIn{from{transform:skewX(-24deg) translateX(120px);opacity:0}to{transform:skewX(-24deg) translateX(0);opacity:1}}
+.cover .stripes i{animation:stripeIn .9s cubic-bezier(.2,.8,.3,1) both}
+.cover .stripes i:nth-child(1){animation-delay:.10s}
+.cover .stripes i:nth-child(2){animation-delay:.20s}
+.cover .stripes i:nth-child(3){animation-delay:.30s}
+.cover .stripes i:nth-child(4){animation-delay:.40s}
+@keyframes riseIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.cover .kicker{animation:riseIn .7s .05s both}
+.cover h2{animation:riseIn .7s .16s both}
+.cover .sub{animation:riseIn .7s .28s both}
+.cover .meta{animation:riseIn .7s .40s both}
+
+figure svg .rise{opacity:0;transform:translateY(12px);transition:opacity .6s ease,transform .6s cubic-bezier(.2,.75,.3,1)}
+figure.in svg .rise{opacity:1;transform:none}
+figure svg .grow{transform:scaleX(0);transform-box:fill-box;transform-origin:left center;transition:transform .9s cubic-bezier(.2,.8,.3,1)}
+figure.in svg .grow{transform:scaleX(1)}
+figure svg .draw{stroke-dasharray:380;stroke-dashoffset:380;transition:stroke-dashoffset 1.2s ease .35s}
+figure.in svg .draw{stroke-dashoffset:0}
+.flow{stroke-dasharray:5 7;animation:flowd 1.7s linear infinite}
+@keyframes flowd{to{stroke-dashoffset:-24}}
+.pulse{animation:puls 2.8s ease-in-out infinite}
+@keyframes puls{0%,100%{opacity:.5}50%{opacity:1}}
+.bob{animation:bob 6s ease-in-out infinite alternate}
+@keyframes bob{to{transform:translateY(-5px)}}
+
+/* ---------- figuras por pasos ---------- */
+.stepfig g[data-s]{opacity:.13;transition:opacity .55s ease}
+.stepfig g[data-s].on{opacity:1}
+.stepfig g[data-s].now .box{stroke:#FF7A50;fill:rgba(255,122,80,.12)}
+.stepfig g[data-s].now text.ds{fill:#FFD3C1}
+.stepfig g[data-s].now text.dm{fill:#FF9A73}
+.deck{border-top:1px solid var(--line);background:var(--panel)}
+.cards{padding:22px 24px 6px;min-height:126px}
+.card{display:none}
+.card.on{display:block;animation:cardIn .4s cubic-bezier(.2,.8,.3,1)}
+@keyframes cardIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.card .step{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--coral);display:block;margin-bottom:9px}
+.card h5{font-family:var(--disp);font-size:19px;font-weight:600;color:var(--ink);margin:0 0 8px}
+.card p{font-size:14.6px;line-height:1.65;margin:0;max-width:72ch}
+.ctrls{display:flex;align-items:center;gap:10px;padding:14px 24px;border-top:1px solid var(--line);background:var(--deep);flex-wrap:wrap}
+.ctrls .dots{display:flex;gap:6px;margin-right:auto}
+.ctrls .dots button{width:26px;height:5px;border-radius:3px;border:0;background:#33373E;cursor:pointer;padding:0;transition:background .3s,width .3s}
+.ctrls .dots button.on{background:var(--coral);width:42px}
+.ctrls .dots button.done{background:#7C5343}
+.btn.sm{padding:8px 15px;font-size:12.6px}
+.btn:disabled{opacity:.32;cursor:default}
+.btn:disabled:hover{background:var(--coral);border-color:var(--coral)}
+.btn.ghost:disabled:hover{background:transparent;border-color:var(--line2);color:var(--body)}
+
+
+/* ---------- recursos y materiales ---------- */
+.res{display:flex;flex-direction:column;gap:12px;margin:26px 0}
+.rescard{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+a.rescard{display:flex;align-items:center;gap:14px;padding:16px 18px;text-decoration:none;transition:border-color .2s,transform .2s}
+a.rescard:hover{border-color:var(--coral);transform:translateY(-2px)}
+.rescard .ic{width:38px;height:38px;flex:0 0 38px;border-radius:11px;background:var(--coral-t);display:grid;place-items:center;font-size:18px}
+.rescard .bd{flex:1;min-width:0;text-align:left}
+.rescard .bd b{display:block;font-family:var(--disp);font-size:15px;color:var(--ink);font-weight:600;margin-bottom:2px}
+.rescard .bd span{display:block;font-size:12.8px;color:var(--muted);line-height:1.5}
+.rescard .go,.rescard .chev{font-family:var(--mono);font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--coral);white-space:nowrap}
+.reshead{display:flex;align-items:center;gap:14px;width:100%;padding:16px 18px;background:transparent;border:0;cursor:pointer;font-family:var(--sans)}
+.reshead:hover .chev{color:#FFB496}
+.resbody{display:none;border-top:1px solid var(--line)}
+.rescard.open .resbody{display:block;animation:cardIn .35s cubic-bezier(.2,.8,.3,1)}
+.codetop{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--deep);border-bottom:1px solid var(--line)}
+.codetop .lang{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-right:auto}
+.copy{border:1px solid var(--line2);background:transparent;color:var(--body);font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;border-radius:7px;padding:6px 13px;cursor:pointer;transition:all .18s}
+.copy:hover{border-color:var(--coral);color:var(--coral)}
+.copy.ok{border-color:var(--mint);color:var(--mint)}
+.rescard pre{margin:0;padding:18px 20px;overflow:auto;max-height:440px;background:#0E0F11}
+.rescard code{font-family:var(--mono);font-size:12.9px;line-height:1.78;color:#D7DCE3;background:transparent;padding:0;border-radius:0;white-space:pre}
+
+@media(max-width:980px){
+  .shell{flex-direction:column}
+  .rail{width:100%;flex:none;height:auto;position:static;border-right:0;border-bottom:1px solid var(--line)}
+  .toc{display:none;padding-bottom:20px}
+  body.open .toc{display:block}
+  .menu{display:inline-flex;border:1px solid var(--line2);background:transparent;color:var(--body);border-radius:7px;padding:7px 12px;font-family:var(--sans);font-size:12.5px;cursor:pointer}
+  .bar,.page{padding-left:20px;padding-right:20px}
+  .cover{padding:36px 24px 34px}
+  .cover h2{font-size:34px;max-width:none}
+  .cover .stripes{display:none}
+  h3{font-size:26px}
+  .duo,.trio{grid-template-columns:1fr}
+  figure .canvas{padding:14px 12px;overflow-x:auto}
+  figure svg{min-width:620px}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="rail">
+  <div class="mark">
+    <div class="logo">
+      <svg width="34" height="24" viewBox="0 0 34 24" aria-hidden="true">
+        <path d="M14 4c4 0 7 2.6 7.6 6.2 3 .2 5.4 2.5 5.4 5.4 0 3-2.6 5.4-5.8 5.4H12c-3.9 0-7-2.9-7-6.5 0-3 2.1-5.5 5-6.2C10.6 5.6 12.1 4 14 4z" fill="#FF7A50"/>
+        <rect x="0" y="8" width="3" height="3" fill="#FF7A50" opacity=".9"/>
+        <rect x="4" y="14" width="3" height="3" fill="#FF7A50" opacity=".7"/>
+        <rect x="0" y="17" width="2.4" height="2.4" fill="#FF7A50" opacity=".5"/>
+        <rect x="5" y="4" width="2.4" height="2.4" fill="#FF7A50" opacity=".6"/>
+      </svg>
+      <span>datapath</span>
+    </div>
+    <p class="course">[NOMBRE DEL PROGRAMA]</p>
+    <h1>[TÍTULO DE LA SESIÓN]</h1>
+    <p>[Módulo N · Sesión N de N]</p>
+  </div>
+  <nav class="toc" id="toc"></nav>
+</aside>
+
+<main class="stage">
+  <div class="bar">
+    <button class="menu" id="menu">Temario</button>
+    <span class="where" id="where">Portada</span>
+    <button class="go" id="go">Cuestionario</button>
+    <i class="rule" id="rule"></i>
+  </div>
+  <div class="page">
+
+  <header class="cover">
+    <div class="stripes"><i></i><i></i><i></i><i></i></div>
+    <p class="kicker">[Sesión N]</p>
+    <h2>[Título de la sesión]</h2>
+    <p class="sub">[Dos o tres frases que planteen la tensión central de la sesión: qué problema resuelve lo que se va a ver hoy.]</p>
+    <div class="meta">
+      <div><b>[N] temas</b><span>con diagramas</span></div>
+      <div><b>6 preguntas</b><span>autoevaluación final</span></div>
+      <div><b>[N] horas</b><span>duración estimada</span></div>
+    </div>
+  </header>
+
+  <!-- ============================================================
+       SECCIÓN NORMAL · copiar este bloque por cada tema
+       data-grp = grupo del temario (4 a 6 grupos por sesión)
+       data-nav = nombre corto que aparece en el temario lateral
+       ============================================================ -->
+  <section id="s1" data-grp="[Grupo del temario]" data-nav="[Nombre corto]">
+    <p class="eyebrow">01 · [Etiqueta del tema]</p>
+    <h3>[Titular que afirme algo, no un rótulo]</h3>
+    <p class="lead">[Párrafo de entrada: la idea central en dos o tres frases.]</p>
+    <p>[Desarrollo. Prioriza la consecuencia práctica sobre la definición.]</p>
+
+    <!-- rejilla de tarjetas: .duo (2 col) o .trio (3 col) -->
+    <div class="duo">
+      <div class="tile"><div class="tag">[Etiqueta]</div><h5>[Título]</h5><p>[Texto breve.]</p></div>
+      <div class="tile"><div class="tag">[Etiqueta]</div><h5>[Título]</h5><p>[Texto breve.]</p></div>
+    </div>
+
+    <!-- figura estática · ver references/diagramas.md -->
+    <figure>
+      <div class="canvas">
+        <svg viewBox="0 0 940 300" role="img" aria-label="[descripción accesible]">
+          <rect class="box rise" x="20" y="60" width="200" height="60" rx="12"/>
+          <text class="dt" x="120" y="88" text-anchor="middle">[Nodo]</text>
+          <text class="dm" x="120" y="108" text-anchor="middle">[ETIQUETA]</text>
+          <path class="ln on flow" d="M232 90 H296"/><polygon points="296,84 308,90 296,96" fill="#FF7A50"/>
+          <rect class="box hi rise" x="320" y="60" width="200" height="60" rx="12"/>
+          <text class="dt" x="420" y="88" text-anchor="middle" fill="#FFB496">[Nodo destacado]</text>
+        </svg>
+      </div>
+      <figcaption><b>Figura 1.</b> [Lectura de la figura: qué hay que ver aquí, no lo que ya se ve.]</figcaption>
+    </figure>
+
+    <!-- llamadas: .note, .note.warn, .note.stop -->
+    <div class="note">
+      <b>[Titular de la llamada]</b>
+      <p>[Una consecuencia, un error frecuente o una regla de diseño.]</p>
+    </div>
+
+    <table>
+      <tr><th>[Columna]</th><th>[Columna]</th></tr>
+      <tr><td><strong>[Fila]</strong></td><td>[Contenido]</td></tr>
+    </table>
+  </section>
+
+  <!-- ============================================================
+       SECCIÓN CON TARJETAS QUE AVANZAN · 3 a 5 por sesión
+       ver references/tarjetas.md antes de escribirla
+       ============================================================ -->
+  <section id="s2" data-grp="[Grupo del temario]" data-nav="[Nombre corto]">
+    <p class="eyebrow">02 · [Etiqueta del tema]</p>
+    <h3>[Titular]</h3>
+    <p class="lead">[Entrada.]</p>
+    <figure class="stepfig">
+      <div class="canvas">
+        <svg viewBox="0 0 940 300" role="img" aria-label="[descripción accesible]">
+          <!-- lo que siempre se ve va fuera de los grupos -->
+          <g data-s="0">
+            <rect class="box" x="20" y="60" width="200" height="60" rx="12"/>
+            <text class="ds" x="120" y="95" text-anchor="middle">[Etapa 1]</text>
+          </g>
+          <g data-s="1">
+            <path class="ln on flow" d="M232 90 H296"/><polygon points="296,84 308,90 296,96" fill="#FF7A50"/>
+            <rect class="box" x="320" y="60" width="200" height="60" rx="12"/>
+            <text class="ds" x="420" y="95" text-anchor="middle">[Etapa 2]</text>
+          </g>
+        </svg>
+      </div>
+      <div class="deck">
+        <div class="cards">
+          <article class="card on"><span class="step">Paso 1 de 2</span><h5>[Título del paso]</h5><p>[Qué ocurre en esta etapa y por qué importa.]</p></article>
+          <article class="card"><span class="step">Paso 2 de 2</span><h5>[Título del paso]</h5><p>[Idem.]</p></article>
+        </div>
+        <div class="ctrls">
+          <div class="dots"></div>
+          <button class="btn ghost sm prev" type="button">Anterior</button>
+          <button class="btn sm next" type="button">Siguiente</button>
+        </div>
+      </div>
+    </figure>
+  </section>
+
+  <!-- ============================================================
+       RECURSOS Y MATERIALES · penúltima sección
+       ver references/recursos.md · el código va escapado
+       ============================================================ -->
+  <section id="s3" data-grp="Cierre" data-nav="Recursos y materiales">
+    <p class="eyebrow">03 · Descargas</p>
+    <h3>Recursos y materiales de la sesión</h3>
+    <p class="lead">Todo lo que se usó en clase, en un solo sitio. Los documentos abren en Drive; los scripts están dentro de este archivo, así que funcionan aunque no tengas conexión: despliega el que necesites y cópialo con un clic.</p>
+    <div class="res">
+
+      <a class="rescard" href="[URL DE DRIVE]" target="_blank" rel="noopener">
+        <span class="ic">&#128196;</span>
+        <span class="bd"><b>[Nombre del recurso]</b><span>[Qué contiene y dónde está alojado]</span></span>
+        <span class="go">Abrir &#8599;</span>
+      </a>
+
+      <div class="rescard code">
+        <button class="reshead" type="button" aria-expanded="false">
+          <span class="ic">&#128013;</span>
+          <span class="bd"><b>[nombre_del_archivo.py]</b><span>[Lenguaje · qué hace el script]</span></span>
+          <span class="chev">Ver código</span>
+        </button>
+        <div class="resbody">
+          <div class="codetop"><span class="lang">python</span><button class="copy" type="button">Copiar</button></div>
+          <pre><code>[CÓDIGO ESCAPADO: &amp; &lt; &gt; como entidades]</code></pre>
+        </div>
+      </div>
+
+    </div>
+    <div class="note">
+      <b>Cómo ejecutarlo</b>
+      <p>[Entorno, dependencias y qué conviene cambiar para probarlo con datos propios.]</p>
+    </div>
+  </section>
+
+  <section id="s-quiz" data-grp="Cierre" data-nav="Cuestionario final">
+    <p class="eyebrow">[NN] · Autoevaluación</p>
+    <h3>Cuestionario final</h3>
+    <p class="lead">Seis preguntas sobre los temas centrales de la sesión. Cada respuesta se explica al momento, así que sirve tanto para medirte como para repasar. Puedes repetirlo las veces que quieras.</p>
+    <div class="quiz">
+      <div class="qtop">
+        <div class="idx" id="q-idx">Pregunta 1<small>de 6</small></div>
+        <div class="pips" id="q-pips"></div>
+        <span class="score" id="q-score">0 correctas</span>
+      </div>
+      <div class="qbody" id="q-body"></div>
+      <div class="qfoot" id="q-foot"></div>
+    </div>
+    <div class="note" style="margin-top:30px">
+      <b>Para llevarte a casa</b>
+      <p>Si tuvieras que recordar una sola cadena: el texto se parte en tokens, los tokens se vuelven vectores, la atención los relaciona entre sí, y de esa relación sale una distribución de probabilidad de la que tú eliges el siguiente token. Costo, latencia y alucinaciones son consecuencias directas de ese circuito, no accidentes.</p>
+    </div>
+    <div class="foot">
+      <span>Datapath · [NOMBRE DEL PROGRAMA]</span>
+      <span>[Módulo N · Sesión N] · [Título de la sesión]</span>
+    </div>
+  </section>
+
+  </div>
+</main>
+</div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var secs=[].slice.call(document.querySelectorAll("section"));
+
+  /* temario */
+  var last="",html="";
+  secs.forEach(function(s,i){
+    if(s.dataset.grp!==last){last=s.dataset.grp;html+='<div class="grp">'+last+'</div>';}
+    html+='<a href="#'+s.id+'" data-t="'+s.id+'"><span class="n">'+String(i+1).padStart(2,"0")+'</span><span>'+s.dataset.nav+'</span></a>';
+  });
+  $("toc").innerHTML=html;
+  var links=[].slice.call($("toc").querySelectorAll("a"));
+  links.forEach(function(a){a.addEventListener("click",function(){document.body.classList.remove("open");});});
+  $("menu").addEventListener("click",function(){document.body.classList.toggle("open");});
+  $("go").addEventListener("click",function(){$("s-quiz").scrollIntoView({behavior:"smooth"});});
+
+  /* seguimiento de lectura */
+  if(typeof IntersectionObserver!=="undefined"){
+    var io=new IntersectionObserver(function(es){
+      es.forEach(function(e){
+        if(!e.isIntersecting)return;
+        links.forEach(function(a){a.classList.toggle("on",a.dataset.t===e.target.id);});
+        var i=secs.indexOf(e.target);
+        $("where").textContent=e.target.dataset.grp+" — "+e.target.dataset.nav;
+        $("rule").style.width=Math.round((i+1)/secs.length*100)+"%";
+      });
+    },{rootMargin:"-12% 0px -72% 0px",threshold:0});
+    secs.forEach(function(s){io.observe(s);});
+  }
+
+  /* cuestionario */
+  /* === BANCO DE PREGUNTAS · sustituir por las 6 de esta sesión === */
+  var Q=[
+   {tag:"[Tema al que pertenece]",
+    q:"[Pregunta de criterio aplicado, no de memoria]",
+    o:["[Distractor plausible]","[Respuesta correcta]","[Distractor plausible]","[Distractor plausible]"],
+    ok:1,
+    why:"[Por qué es correcta y, si aporta, por qué falla la que suele elegirse. Dos o tres frases.]"}
+  ];
+  var L=["A","B","C","D"],i=0,ok=0,marks=[],locked=false;
+  var body=$("q-body"),foot=$("q-foot"),idx=$("q-idx"),score=$("q-score"),pips=$("q-pips");
+  function drawPips(){
+    var h="";
+    for(var k=0;k<Q.length;k++){
+      var c=marks[k]===1?"ok":(marks[k]===0?"no":(k===i?"now":""));
+      h+='<i class="'+c+'"></i>';
+    }
+    pips.innerHTML=h;
+  }
+  function paint(){
+    locked=false;var it=Q[i];
+    idx.innerHTML="Pregunta "+(i+1)+"<small>de "+Q.length+"</small>";
+    score.textContent=ok+" correctas";
+    drawPips();
+    body.innerHTML='<p class="qtag">'+it.tag+'</p><p class="qq">'+it.q+'</p><div class="opts" id="opts">'+
+      it.o.map(function(o,k){return '<button class="opt" data-k="'+k+'"><span class="k">'+L[k]+'</span><span>'+o+'</span></button>';}).join("")+
+      '</div><div class="fb" id="fb"></div>';
+    foot.innerHTML='<span class="hint">Elige una opción para ver la explicación</span>';
+    [].slice.call(document.querySelectorAll("#opts .opt")).forEach(function(b){
+      b.addEventListener("click",function(){answer(+b.dataset.k);});
+    });
+  }
+  function answer(k){
+    if(locked)return;locked=true;
+    var it=Q[i],good=k===it.ok;
+    marks[i]=good?1:0;
+    if(good)ok++;else it.mine=it.o[k];
+    [].slice.call(document.querySelectorAll("#opts .opt")).forEach(function(b,n){
+      b.disabled=true;
+      b.classList.add(n===it.ok?"right":(n===k?"wrong":"off"));
+    });
+    var fb=$("fb");
+    fb.className="fb show "+(good?"y":"n");
+    fb.innerHTML="<b>"+(good?"Correcto":"Revisa esto")+"</b>"+it.why;
+    score.textContent=ok+" correctas";
+    drawPips();
+    foot.innerHTML='<span class="hint">'+(i+1)+" de "+Q.length+'</span><button class="btn" id="next">'+(i===Q.length-1?"Ver resultado":"Siguiente pregunta")+'</button>';
+    $("next").addEventListener("click",function(){
+      if(i===Q.length-1)result();else{i++;paint();}
+    });
+  }
+  function result(){
+    var p=Math.round(ok/Q.length*100),msg;
+    if(p>=84)msg="Tienes clara la mecánica: predicción, tokens, vectores y control de la generación. Puedes entrar al módulo de arquitectura de soluciones sin deuda pendiente.";
+    else if(p>=60)msg="Buena base. Vuelve a los temas de las preguntas que fallaste antes de repetir el cuestionario.";
+    else msg="Conviene repasar. Revisa otra vez los temas 04, 06, 07 y 12: sostienen casi todo lo que viene en las siguientes sesiones.";
+    idx.innerHTML="Resultado<small>cuestionario completo</small>";
+    var wrong=Q.filter(function(it,k){return marks[k]===0;});
+    body.innerHTML='<div class="result"><div class="big">'+ok+'</div><div class="of">de '+Q.length+' · '+p+'% correcto</div>'+
+      '<div class="msg">'+msg+'</div>'+
+      (wrong.length?'<div class="review"><p class="qtag">Para repasar</p>'+wrong.map(function(w){
+        return '<div class="item"><b>'+w.q+'</b><span class="bad">Tu respuesta: '+(w.mine||"")+'</span><br><span class="good">Correcta: '+w.o[w.ok]+'</span></div>';
+      }).join("")+'</div>':"")+'</div>';
+    foot.innerHTML='<span class="hint">'+Q.length+' de '+Q.length+'</span><button class="btn" id="again">Repetir</button><button class="btn ghost" id="top">Volver al inicio</button>';
+    $("again").addEventListener("click",function(){i=0;ok=0;marks=[];Q.forEach(function(x){delete x.mine;});paint();});
+    $("top").addEventListener("click",function(){$("s1").scrollIntoView({behavior:"smooth"});});
+  }
+  paint();
+})();
+</script>
+
+<script>
+(function(){
+  /* --- animación de figuras al entrar en pantalla --- */
+  var figs=[].slice.call(document.querySelectorAll("figure"));
+  figs.forEach(function(f){
+    [].slice.call(f.querySelectorAll(".rise")).forEach(function(el,k){
+      el.style.transitionDelay=Math.min(k,16)*45+"ms";
+    });
+  });
+  if(typeof IntersectionObserver!=="undefined"){
+    var fio=new IntersectionObserver(function(es){
+      es.forEach(function(e){
+        if(e.isIntersecting){e.target.classList.add("in");fio.unobserve(e.target);}
+      });
+    },{rootMargin:"0px 0px -10% 0px",threshold:.15});
+    figs.forEach(function(f){fio.observe(f);});
+    setTimeout(function(){
+      if(!document.querySelector("figure.in"))figs.forEach(function(f){f.classList.add("in");});
+    },2500);
+  }else figs.forEach(function(f){f.classList.add("in");});
+
+
+  /* --- recursos: desplegar scripts y copiarlos --- */
+  [].slice.call(document.querySelectorAll(".rescard.code")).forEach(function(card){
+    var head=card.querySelector(".reshead"),chev=card.querySelector(".chev"),
+        copy=card.querySelector(".copy"),code=card.querySelector("code");
+    head.addEventListener("click",function(){
+      var open=card.classList.toggle("open");
+      head.setAttribute("aria-expanded",String(open));
+      chev.textContent=open?"Ocultar":"Ver código";
+    });
+    copy.addEventListener("click",function(e){
+      e.stopPropagation();
+      var txt=code.textContent;
+      function done(){
+        copy.textContent="Copiado";copy.classList.add("ok");
+        setTimeout(function(){copy.textContent="Copiar";copy.classList.remove("ok");},1800);
+      }
+      function fallback(){
+        var ta=document.createElement("textarea");
+        ta.value=txt;ta.setAttribute("readonly","");
+        ta.style.position="fixed";ta.style.top="-1000px";ta.style.opacity="0";
+        document.body.appendChild(ta);ta.select();
+        try{document.execCommand("copy");done();}catch(err){copy.textContent="Copia manual";}
+        document.body.removeChild(ta);
+      }
+      if(navigator.clipboard&&navigator.clipboard.writeText)
+        navigator.clipboard.writeText(txt).then(done,fallback);
+      else fallback();
+    });
+  });
+
+  /* --- tarjetas que avanzan y controlan el gráfico --- */
+  [].slice.call(document.querySelectorAll(".deck")).forEach(function(deck){
+    var cards=[].slice.call(deck.querySelectorAll(".card"));
+    if(!cards.length)return;
+    var fig=deck.closest("figure");
+    var groups=fig?[].slice.call(fig.querySelectorAll("[data-s]")):[];
+    var dots=deck.querySelector(".dots");
+    var prev=deck.querySelector(".prev");
+    var next=deck.querySelector(".next");
+    var i=0;
+    dots.innerHTML=cards.map(function(c,k){
+      return '<button type="button" data-k="'+k+'" aria-label="Paso '+(k+1)+'"></button>';
+    }).join("");
+    var pips=[].slice.call(dots.querySelectorAll("button"));
+    function show(k){
+      i=k;
+      cards.forEach(function(c,n){c.classList.toggle("on",n===k);});
+      pips.forEach(function(b,n){b.classList.toggle("on",n===k);b.classList.toggle("done",n<k);});
+      groups.forEach(function(g){
+        var s=+g.dataset.s;
+        g.classList.toggle("on",s<=k);
+        g.classList.toggle("now",s===k);
+      });
+      prev.disabled=(k===0);
+      next.disabled=(k===cards.length-1);
+      next.textContent=(k===cards.length-1)?"Fin":"Siguiente";
+    }
+    pips.forEach(function(b){b.addEventListener("click",function(){show(+b.dataset.k);});});
+    prev.addEventListener("click",function(){if(i>0)show(i-1);});
+    next.addEventListener("click",function(){if(i<cards.length-1)show(i+1);});
+    show(0);
+  });
+})();
+</script>
+</body>
+</html>

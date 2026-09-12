@@ -1,0 +1,2341 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Arquitectura del agente inmobiliario Alpha State · Datapath</title>
+<meta name="description" content="Agentes con Azure AI Foundry: arquitectura del agente inmobiliario Alpha State con Microsoft Agent Framework, Google Sheets, Foundry IQ y Memoria de Foundry.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#161719; --panel:#1D1F22; --panel2:#242629; --deep:#101113;
+  --line:#2E3136; --line2:#3A3E44;
+  --ink:#F4F5F6; --body:#C4C8CE; --muted:#878C94;
+  --coral:#FF7A50; --coral-d:#E2603A; --coral-t:rgba(255,122,80,.13);
+  --mint:#6FD3C7; --amber:#F0B85C; --rose:#F0776E;
+  --disp:"Outfit",system-ui,sans-serif;
+  --sans:"Inter",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,monospace;
+  --rail:272px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--body);font-family:var(--sans);font-size:15.5px;line-height:1.72;-webkit-font-smoothing:antialiased}
+::selection{background:var(--coral);color:#141517}
+a{color:var(--coral)}
+
+/* ---------- estructura ---------- */
+.shell{display:flex;min-height:100vh}
+.rail{width:var(--rail);flex:0 0 var(--rail);background:var(--deep);border-right:1px solid var(--line);position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column}
+.mark{padding:26px 24px 20px;border-bottom:1px solid var(--line)}
+.mark .logo{display:flex;align-items:center;gap:9px;margin-bottom:18px}
+.mark .logo svg{display:block}
+.mark .logo span{font-family:var(--disp);font-size:19px;font-weight:600;color:var(--ink);letter-spacing:-.02em}
+.mark .course{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--coral);margin:0 0 8px}
+.mark h1{font-family:var(--disp);font-size:19px;font-weight:600;color:var(--ink);line-height:1.3;margin:0 0 6px;letter-spacing:-.01em}
+.mark p{font-size:12.5px;color:var(--muted);margin:0}
+.toc{padding:14px 0 50px}
+.toc .grp{font-family:var(--mono);font-size:9.5px;letter-spacing:.17em;text-transform:uppercase;color:#5D626A;padding:18px 24px 8px}
+.toc a{display:flex;gap:12px;align-items:baseline;padding:7px 24px;color:var(--body);text-decoration:none;font-size:13.6px;line-height:1.4;border-left:2px solid transparent;transition:color .18s,background .18s,border-color .18s}
+.toc a:hover{background:#191A1D;color:var(--ink)}
+.toc a .n{font-family:var(--mono);font-size:10.5px;color:#5D626A;flex:0 0 20px;transition:color .18s}
+.toc a.on{color:var(--ink);border-left-color:var(--coral);background:linear-gradient(90deg,var(--coral-t),transparent)}
+.toc a.on .n{color:var(--coral)}
+
+.stage{flex:1;min-width:0}
+.bar{position:sticky;top:0;z-index:30;background:rgba(22,23,25,.88);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;padding:11px 44px}
+.bar .where{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--muted);margin-right:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .go{border:1px solid var(--line2);background:transparent;color:var(--body);font-family:var(--sans);font-size:12.5px;font-weight:500;border-radius:7px;padding:7px 13px;cursor:pointer;transition:all .18s}
+.bar .go:hover{border-color:var(--coral);color:var(--coral)}
+.bar .rule{position:absolute;left:0;bottom:-1px;height:2px;width:0;background:var(--coral)}
+.menu{display:none}
+.page{max-width:1040px;margin:0 auto;padding:0 44px 160px}
+
+/* ---------- portada ---------- */
+.cover{position:relative;overflow:hidden;background:#0E0F11;border-radius:22px;margin:26px 0 12px;padding:56px 46px 52px;border:1px solid var(--line)}
+.cover .stripes{position:absolute;inset:0;pointer-events:none}
+.cover .stripes i{position:absolute;right:-14%;height:44px;width:62%;transform:skewX(-24deg);border-radius:3px}
+.cover .stripes i:nth-child(1){top:34px;background:var(--coral)}
+.cover .stripes i:nth-child(2){top:104px;background:#2C2F34}
+.cover .stripes i:nth-child(3){top:174px;background:var(--coral);opacity:.85}
+.cover .stripes i:nth-child(4){top:244px;background:#2C2F34}
+.cover .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--coral);margin:0 0 18px;position:relative}
+.cover h2{font-family:var(--disp);font-size:52px;font-weight:700;color:var(--ink);line-height:1.04;letter-spacing:-.035em;margin:0 0 20px;max-width:13ch;position:relative}
+.cover .sub{font-size:17px;color:var(--body);max-width:50ch;margin:0 0 28px;position:relative;line-height:1.66}
+.cover .meta{display:flex;gap:26px;flex-wrap:wrap;position:relative}
+.cover .meta div{border-left:2px solid var(--coral);padding-left:12px}
+.cover .meta b{display:block;font-family:var(--disp);font-size:17px;color:var(--ink);font-weight:600}
+.cover .meta span{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+
+/* ---------- secciones ---------- */
+section{padding:64px 0 8px;scroll-margin-top:70px}
+section+section{border-top:1px solid var(--line)}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--coral);margin:0 0 14px}
+h3{font-family:var(--disp);font-size:34px;font-weight:600;color:var(--ink);letter-spacing:-.025em;line-height:1.16;margin:0 0 18px;max-width:22ch}
+h4{font-family:var(--disp);font-size:19px;font-weight:600;color:var(--ink);margin:38px 0 10px;letter-spacing:-.01em}
+p{margin:0 0 16px;max-width:74ch}
+.lead{font-size:17.5px;color:var(--ink);line-height:1.62;max-width:66ch;font-weight:400}
+strong{color:var(--ink);font-weight:600}
+em.q{font-style:normal;color:var(--coral)}
+ul{margin:0 0 18px;padding-left:22px;max-width:74ch}
+li{margin-bottom:9px}
+li::marker{color:var(--coral)}
+code{font-family:var(--mono);font-size:13px;background:var(--panel2);border-radius:5px;padding:2px 6px;color:var(--ink)}
+
+/* ---------- figuras ---------- */
+figure{margin:26px 0 30px;background:var(--panel);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+figure .canvas{padding:20px 22px;background:radial-gradient(120% 140% at 20% 0%,#1F2226 0%,#141518 70%)}
+figure svg{display:block;width:100%;height:auto}
+figcaption{border-top:1px solid var(--line);padding:13px 22px;font-size:13.2px;color:var(--muted);line-height:1.6}
+figcaption b{color:var(--body);font-weight:600}
+.dt{fill:#EDEFF2;font-family:"Inter",sans-serif;font-size:14px;font-weight:600}
+.ds{fill:#B9BEC6;font-family:"Inter",sans-serif;font-size:12.5px}
+.dm{fill:#7C828B;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.13em}
+.dc{fill:#FF7A50;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.06em}
+.box{fill:#1C1F23;stroke:#34383F;stroke-width:1.4}
+.box.hi{fill:rgba(255,122,80,.12);stroke:#FF7A50;stroke-width:1.8}
+.box.mute{fill:#17191C;stroke:#282B30}
+.ln{stroke:#3A3E45;stroke-width:1.6;fill:none}
+.ln.on{stroke:#FF7A50;stroke-width:2}
+.ln.dash{stroke-dasharray:5 6}
+
+/* ---------- llamadas ---------- */
+.note{border-left:3px solid var(--coral);background:linear-gradient(90deg,var(--coral-t),rgba(255,122,80,.02));border-radius:0 12px 12px 0;padding:16px 20px;margin:24px 0;max-width:78ch}
+.note.warn{border-left-color:var(--amber);background:linear-gradient(90deg,rgba(240,184,92,.11),transparent)}
+.note.stop{border-left-color:var(--rose);background:linear-gradient(90deg,rgba(240,119,110,.11),transparent)}
+.note b{display:block;font-family:var(--disp);font-size:15px;color:var(--ink);margin-bottom:4px;font-weight:600}
+.note p{margin:0;font-size:14.4px;max-width:none}
+
+/* ---------- rejillas ---------- */
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:24px 0}
+.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:24px 0}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 19px}
+.tile .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--coral);margin-bottom:9px}
+.tile h5{font-family:var(--disp);font-size:16px;font-weight:600;color:var(--ink);margin:0 0 7px}
+.tile p{font-size:13.8px;margin:0;color:var(--body);line-height:1.6}
+.formula{background:var(--deep);border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin:22px 0;font-family:var(--mono);font-size:14px;color:var(--ink);line-height:2.1;overflow-x:auto}
+.formula .lbl{color:var(--muted);font-size:11px;letter-spacing:.13em;text-transform:uppercase}
+.formula .hl{color:var(--coral)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 6px}
+.chip{font-family:var(--mono);font-size:13.5px;padding:7px 11px;border-radius:8px;border:1px solid var(--line2);background:var(--panel2);color:var(--ink)}
+.chip.c{border-color:rgba(255,122,80,.5);background:rgba(255,122,80,.12);color:#FFB496}
+.chip.m{border-color:rgba(111,211,199,.4);background:rgba(111,211,199,.1);color:#9FE4DA}
+.count{font-family:var(--mono);font-size:11.5px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:24px 0}
+th{text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:500;padding:10px 12px;border-bottom:1px solid var(--line2)}
+td{padding:12px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--body)}
+td strong{color:var(--ink)}
+tr:last-child td{border-bottom:0}
+.links{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin:24px 0}
+.links a{display:flex;gap:13px;align-items:center;text-decoration:none;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:15px 17px;transition:border-color .2s,transform .2s}
+.links a:hover{border-color:var(--coral);transform:translateY(-2px)}
+.links .ic{width:36px;height:36px;border-radius:10px;background:var(--coral-t);display:grid;place-items:center;font-size:18px;flex:0 0 36px}
+.links b{display:block;font-family:var(--disp);font-size:14.5px;color:var(--ink);font-weight:600}
+.links span{font-family:var(--mono);font-size:11px;color:var(--muted);word-break:break-all}
+
+/* ---------- cuestionario ---------- */
+.quiz{background:var(--panel);border:1px solid var(--line);border-radius:20px;overflow:hidden;margin-top:28px}
+.qtop{display:flex;align-items:center;gap:16px;padding:18px 22px;border-bottom:1px solid var(--line);background:var(--deep)}
+.qtop .idx{font-family:var(--disp);font-size:16px;font-weight:600;color:var(--ink);margin-right:auto}
+.qtop .idx small{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:400;margin-top:2px}
+.qtop .score{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.pips{display:flex;gap:5px}
+.pips i{width:26px;height:4px;border-radius:2px;background:#33373E;display:block;transition:background .3s}
+.pips i.now{background:var(--coral)}
+.pips i.ok{background:var(--mint)}
+.pips i.no{background:var(--rose)}
+.qbody{padding:26px 24px}
+.qtag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--coral);margin:0 0 12px}
+.qq{font-family:var(--disp);font-size:22px;font-weight:600;color:var(--ink);line-height:1.35;margin:0 0 20px;max-width:60ch}
+.opts{display:flex;flex-direction:column;gap:10px}
+.opt{display:flex;gap:14px;align-items:flex-start;text-align:left;background:var(--panel2);border:1.5px solid var(--line);border-radius:12px;padding:14px 16px;font-family:var(--sans);font-size:14.5px;color:var(--body);cursor:pointer;line-height:1.55;transition:border-color .18s,transform .18s,background .18s}
+.opt:hover:not(:disabled){border-color:var(--coral);transform:translateX(3px)}
+.opt .k{font-family:var(--mono);font-size:12px;color:var(--muted);flex:0 0 16px;padding-top:2px}
+.opt:disabled{cursor:default}
+.opt.right{border-color:var(--mint);background:rgba(111,211,199,.1);color:#C9EFE9}
+.opt.right .k{color:var(--mint)}
+.opt.wrong{border-color:var(--rose);background:rgba(240,119,110,.1);color:#F5C9C5}
+.opt.wrong .k{color:var(--rose)}
+.opt.off{opacity:.42}
+.fb{margin-top:20px;border-radius:12px;padding:16px 18px;font-size:14.2px;border-left:3px solid;display:none;line-height:1.65}
+.fb.show{display:block}
+.fb.y{border-color:var(--mint);background:rgba(111,211,199,.08)}
+.fb.n{border-color:var(--rose);background:rgba(240,119,110,.08)}
+.fb b{display:block;font-family:var(--disp);font-size:15px;color:var(--ink);margin-bottom:4px}
+.qfoot{padding:15px 22px;border-top:1px solid var(--line);background:var(--deep);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.qfoot .hint{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-right:auto}
+.btn{border:1px solid var(--coral);background:var(--coral);color:#141517;font-family:var(--sans);font-size:13.5px;font-weight:600;border-radius:9px;padding:9px 18px;cursor:pointer;transition:all .18s}
+.btn:hover{background:var(--coral-d);border-color:var(--coral-d)}
+.btn.ghost{background:transparent;color:var(--body);border-color:var(--line2)}
+.btn.ghost:hover{border-color:var(--coral);color:var(--coral);background:transparent}
+.result{text-align:center;padding:32px 20px}
+.result .big{font-family:var(--disp);font-size:68px;font-weight:700;color:var(--ink);line-height:1;letter-spacing:-.04em}
+.result .of{font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-top:8px}
+.result .msg{font-size:15px;max-width:52ch;margin:20px auto 0;color:var(--body)}
+.review{text-align:left;max-width:60ch;margin:26px auto 0}
+.review .item{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px;font-size:13.6px}
+.review .item b{display:block;color:var(--ink);margin-bottom:6px;font-weight:600}
+.review .bad{color:var(--rose)}
+.review .good{color:var(--mint)}
+.foot{margin-top:70px;padding-top:26px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#5D626A}
+
+
+/* ---------- movimiento ---------- */
+@keyframes stripeIn{from{transform:skewX(-24deg) translateX(120px);opacity:0}to{transform:skewX(-24deg) translateX(0);opacity:1}}
+.cover .stripes i{animation:stripeIn .9s cubic-bezier(.2,.8,.3,1) both}
+.cover .stripes i:nth-child(1){animation-delay:.10s}
+.cover .stripes i:nth-child(2){animation-delay:.20s}
+.cover .stripes i:nth-child(3){animation-delay:.30s}
+.cover .stripes i:nth-child(4){animation-delay:.40s}
+@keyframes riseIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.cover .kicker{animation:riseIn .7s .05s both}
+.cover h2{animation:riseIn .7s .16s both}
+.cover .sub{animation:riseIn .7s .28s both}
+.cover .meta{animation:riseIn .7s .40s both}
+
+figure svg .rise{opacity:0;transform:translateY(12px);transition:opacity .6s ease,transform .6s cubic-bezier(.2,.75,.3,1)}
+figure.in svg .rise{opacity:1;transform:none}
+figure svg .grow{transform:scaleX(0);transform-box:fill-box;transform-origin:left center;transition:transform .9s cubic-bezier(.2,.8,.3,1)}
+figure.in svg .grow{transform:scaleX(1)}
+figure svg .draw{stroke-dasharray:380;stroke-dashoffset:380;transition:stroke-dashoffset 1.2s ease .35s}
+figure.in svg .draw{stroke-dashoffset:0}
+.flow{stroke-dasharray:5 7;animation:flowd 1.7s linear infinite}
+@keyframes flowd{to{stroke-dashoffset:-24}}
+.pulse{animation:puls 2.8s ease-in-out infinite}
+@keyframes puls{0%,100%{opacity:.5}50%{opacity:1}}
+.bob{animation:bob 6s ease-in-out infinite alternate}
+@keyframes bob{to{transform:translateY(-5px)}}
+
+/* ---------- figuras por pasos ---------- */
+.stepfig g[data-s]{opacity:.13;transition:opacity .55s ease}
+.stepfig g[data-s].on{opacity:1}
+.stepfig g[data-s].now .box{stroke:#FF7A50;fill:rgba(255,122,80,.12)}
+.stepfig g[data-s].now text.ds{fill:#FFD3C1}
+.stepfig g[data-s].now text.dm{fill:#FF9A73}
+.deck{border-top:1px solid var(--line);background:var(--panel)}
+.cards{padding:22px 24px 6px;min-height:126px}
+.card{display:none}
+.card.on{display:block;animation:cardIn .4s cubic-bezier(.2,.8,.3,1)}
+@keyframes cardIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.card .step{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--coral);display:block;margin-bottom:9px}
+.card h5{font-family:var(--disp);font-size:19px;font-weight:600;color:var(--ink);margin:0 0 8px}
+.card p{font-size:14.6px;line-height:1.65;margin:0;max-width:72ch}
+.ctrls{display:flex;align-items:center;gap:10px;padding:14px 24px;border-top:1px solid var(--line);background:var(--deep);flex-wrap:wrap}
+.ctrls .dots{display:flex;gap:6px;margin-right:auto}
+.ctrls .dots button{width:26px;height:5px;border-radius:3px;border:0;background:#33373E;cursor:pointer;padding:0;transition:background .3s,width .3s}
+.ctrls .dots button.on{background:var(--coral);width:42px}
+.ctrls .dots button.done{background:#7C5343}
+.btn.sm{padding:8px 15px;font-size:12.6px}
+.btn:disabled{opacity:.32;cursor:default}
+.btn:disabled:hover{background:var(--coral);border-color:var(--coral)}
+.btn.ghost:disabled:hover{background:transparent;border-color:var(--line2);color:var(--body)}
+
+
+/* ---------- recursos y materiales ---------- */
+.res{display:flex;flex-direction:column;gap:12px;margin:26px 0}
+.rescard{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+a.rescard{display:flex;align-items:center;gap:14px;padding:16px 18px;text-decoration:none;transition:border-color .2s,transform .2s}
+a.rescard:hover{border-color:var(--coral);transform:translateY(-2px)}
+.rescard .ic{width:38px;height:38px;flex:0 0 38px;border-radius:11px;background:var(--coral-t);display:grid;place-items:center;font-size:18px}
+.rescard .bd{flex:1;min-width:0;text-align:left}
+.rescard .bd b{display:block;font-family:var(--disp);font-size:15px;color:var(--ink);font-weight:600;margin-bottom:2px}
+.rescard .bd span{display:block;font-size:12.8px;color:var(--muted);line-height:1.5}
+.rescard .go,.rescard .chev{font-family:var(--mono);font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--coral);white-space:nowrap}
+.reshead{display:flex;align-items:center;gap:14px;width:100%;padding:16px 18px;background:transparent;border:0;cursor:pointer;font-family:var(--sans)}
+.reshead:hover .chev{color:#FFB496}
+.resbody{display:none;border-top:1px solid var(--line)}
+.rescard.open .resbody{display:block;animation:cardIn .35s cubic-bezier(.2,.8,.3,1)}
+.codetop{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--deep);border-bottom:1px solid var(--line)}
+.codetop .lang{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-right:auto}
+.copy{border:1px solid var(--line2);background:transparent;color:var(--body);font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;border-radius:7px;padding:6px 13px;cursor:pointer;transition:all .18s}
+.copy:hover{border-color:var(--coral);color:var(--coral)}
+.copy.ok{border-color:var(--mint);color:var(--mint)}
+.rescard pre{margin:0;padding:18px 20px;overflow:auto;max-height:440px;background:#0E0F11}
+.rescard code{font-family:var(--mono);font-size:12.9px;line-height:1.78;color:#D7DCE3;background:transparent;padding:0;border-radius:0;white-space:pre}
+
+@media(max-width:980px){
+  .shell{flex-direction:column}
+  .rail{width:100%;flex:none;height:auto;position:static;border-right:0;border-bottom:1px solid var(--line)}
+  .toc{display:none;padding-bottom:20px}
+  body.open .toc{display:block}
+  .menu{display:inline-flex;border:1px solid var(--line2);background:transparent;color:var(--body);border-radius:7px;padding:7px 12px;font-family:var(--sans);font-size:12.5px;cursor:pointer}
+  .bar,.page{padding-left:20px;padding-right:20px}
+  .cover{padding:36px 24px 34px}
+  .cover h2{font-size:34px;max-width:none}
+  .cover .stripes{display:none}
+  h3{font-size:26px}
+  .duo,.trio{grid-template-columns:1fr}
+  figure .canvas{padding:14px 12px;overflow-x:auto}
+  figure svg{min-width:620px}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="rail">
+  <div class="mark">
+    <div class="logo">
+      <svg width="34" height="24" viewBox="0 0 34 24" aria-hidden="true">
+        <path d="M14 4c4 0 7 2.6 7.6 6.2 3 .2 5.4 2.5 5.4 5.4 0 3-2.6 5.4-5.8 5.4H12c-3.9 0-7-2.9-7-6.5 0-3 2.1-5.5 5-6.2C10.6 5.6 12.1 4 14 4z" fill="#FF7A50"/>
+        <rect x="0" y="8" width="3" height="3" fill="#FF7A50" opacity=".9"/>
+        <rect x="4" y="14" width="3" height="3" fill="#FF7A50" opacity=".7"/>
+        <rect x="0" y="17" width="2.4" height="2.4" fill="#FF7A50" opacity=".5"/>
+        <rect x="5" y="4" width="2.4" height="2.4" fill="#FF7A50" opacity=".6"/>
+      </svg>
+      <span>datapath</span>
+    </div>
+    <p class="course">Agentes con Azure AI Foundry</p>
+    <h1>Arquitectura del agente inmobiliario Alpha State</h1>
+    <p>Caso práctico · Agent Framework + Foundry</p>
+  </div>
+  <nav class="toc" id="toc"></nav>
+</aside>
+
+<main class="stage">
+  <div class="bar">
+    <button class="menu" id="menu">Temario</button>
+    <span class="where" id="where">Portada</span>
+    <button class="go" id="go">Cuestionario</button>
+    <i class="rule" id="rule"></i>
+  </div>
+  <div class="page">
+
+  <header class="cover">
+    <div class="stripes"><i></i><i></i><i></i><i></i></div>
+    <p class="kicker">Arquitectura</p>
+    <h2>Un agente inmobiliario en Microsoft Foundry</h2>
+    <p class="sub">Qué piezas tiene, quién habla con quién y por qué cada decisión. Un catálogo real, un PDF de políticas y memoria por cliente, sin que el agente invente un solo dato.</p>
+    <div class="meta">
+      <div><b>13 temas</b><span>con diagramas</span></div>
+      <div><b>6 preguntas</b><span>autoevaluación final</span></div>
+      <div><b>3 capacidades</b><span>catálogo · políticas · memoria</span></div>
+    </div>
+  </header>
+
+  <section id="s1" data-grp="Visión general" data-nav="Qué hace el agente">
+    <p class="eyebrow">01 · El caso</p>
+    <h3>Un asesor inmobiliario que no inventa datos</h3>
+    <p class="lead">Alpha State alquila inmuebles en Campinas (Brasil). Su agente atiende en español, muestra propiedades reales, explica las políticas de la empresa y recuerda a cada cliente entre conversaciones.</p>
+    <p>Tres capacidades, cada una con su fuente de verdad. Lo que no está en una fuente, el agente lo deriva a un asesor humano.</p>
+    <div class="trio">
+      <div class="tile"><div class="tag">Catálogo</div><h5>Google Sheets</h5><p>La hoja privada de la inmobiliaria. Filtros por barrio, precio, dormitorios, amoblado.</p></div>
+      <div class="tile"><div class="tag">Políticas</div><h5>Foundry IQ</h5><p>Un PDF con multas, garantías, requisitos y FAQ, indexado en Azure AI Search.</p></div>
+      <div class="tile"><div class="tag">Memoria</div><h5>Memoria de Foundry</h5><p>Nombre, contacto y criterios de cada cliente, disponibles en la siguiente conversación.</p></div>
+    </div>
+  </section>
+
+  <section id="s2" data-grp="Visión general" data-nav="Arquitectura completa">
+    <p class="eyebrow">02 · Arquitectura</p>
+    <h3>Cinco piezas y una sola con código propio</h3>
+    <p class="lead">El cliente habla con Foundry, Foundry llama a nuestro contenedor, y el contenedor orquesta modelo, tools y memoria.</p>
+    
+    <figure>
+      <div class="canvas">
+        <svg viewBox="0 0 940 330" role="img" aria-label="Arquitectura: canal, Foundry Agent Service, contenedor del agente, modelo, y debajo las tres fuentes: Google Sheets, AI Search y memory store">
+          <text class="dm" x="20" y="28">PETICIÓN</text>
+          <rect class="box rise" x="20" y="40" width="170" height="56" rx="12"/>
+          <text class="dt" x="105" y="64" text-anchor="middle">Cliente</text>
+          <text class="dm" x="105" y="84" text-anchor="middle">PLAYGROUND · CANAL</text>
+          <path class="ln on flow" d="M190 68 H228"/><polygon points="228,62 240,68 228,74" fill="#FF7A50"/>
+          <rect class="box rise" x="240" y="40" width="200" height="56" rx="12"/>
+          <text class="dt" x="340" y="64" text-anchor="middle">Foundry Agent Service</text>
+          <text class="dm" x="340" y="84" text-anchor="middle">IDENTIDAD · HISTORIAL</text>
+          <path class="ln on flow" d="M440 68 H478"/><polygon points="478,62 490,68 478,74" fill="#FF7A50"/>
+          <rect class="box hi rise" x="490" y="40" width="220" height="56" rx="12"/>
+          <text class="dt" x="600" y="64" text-anchor="middle" fill="#FFB496">Agente hospedado</text>
+          <text class="dm" x="600" y="84" text-anchor="middle">AGENT FRAMEWORK · PYTHON</text>
+          <path class="ln on flow" d="M710 68 H748"/><polygon points="748,62 760,68 748,74" fill="#FF7A50"/>
+          <rect class="box rise" x="760" y="40" width="160" height="56" rx="12"/>
+          <text class="dt" x="840" y="64" text-anchor="middle">gpt-5.4-mini</text>
+          <text class="dm" x="840" y="84" text-anchor="middle">MODELO</text>
+
+          <path class="ln on dash flow" d="M540 96 V150 H375 V208"/><polygon points="369,208 375,220 381,208" fill="#FF7A50"/>
+          <path class="ln on dash flow" d="M600 96 V208"/><polygon points="594,208 600,220 606,208" fill="#FF7A50"/>
+          <path class="ln on dash flow" d="M660 96 V150 H830 V208"/><polygon points="824,208 830,220 836,208" fill="#FF7A50"/>
+
+          <text class="dm" x="290" y="200">TOOL</text>
+          <rect class="box rise" x="290" y="220" width="170" height="56" rx="12"/>
+          <text class="dt" x="375" y="244" text-anchor="middle">Google Sheets</text>
+          <text class="dm" x="375" y="264" text-anchor="middle">CATÁLOGO ALQUILERES</text>
+          <text class="dm" x="490" y="200">TOOL</text>
+          <rect class="box rise" x="490" y="220" width="220" height="56" rx="12"/>
+          <text class="dt" x="600" y="244" text-anchor="middle">Foundry IQ · AI Search</text>
+          <text class="dm" x="600" y="264" text-anchor="middle">PDF DE POLÍTICAS</text>
+          <text class="dm" x="740" y="200">CONTEXT PROVIDER</text>
+          <rect class="box rise" x="740" y="220" width="180" height="56" rx="12"/>
+          <text class="dt" x="830" y="244" text-anchor="middle">Memory store</text>
+          <text class="dm" x="830" y="264" text-anchor="middle">RECUERDOS POR CLIENTE</text>
+          <text class="ds" x="20" y="300">Todo vive en el proyecto de Foundry <tspan class="dc">datapath-inofuente</tspan>, salvo la hoja de Google y el servicio de búsqueda.</text>
+        </svg>
+      </div>
+      <figcaption><b>Figura 1.</b> El contenedor es el único lugar con código propio. Foundry pone identidad, historial y versiones; el modelo decide cuándo llamar a cada fuente.</figcaption>
+    </figure>
+  </section>
+
+  <section id="s3" data-grp="El agente" data-nav="Agente hospedado">
+    <p class="eyebrow">03 · Hosting</p>
+    <h3>Hospedado, no prompt agent: porque hay código que ejecutar</h3>
+    <p class="lead">Foundry ofrece dos tipos de agente. Elegimos el hospedado porque leer una hoja privada y mapear sus columnas exige código propio.</p>
+    <table>
+      <tr><th>Tipo</th><th>Qué es</th><th>Cuándo</th></tr>
+      <tr><td><strong>Prompt agent</strong></td><td>Modelo + instrucciones + tools declaradas. Sin código.</td><td>Herramientas del catálogo de Foundry bastan.</td></tr>
+      <tr><td><strong>Hosted agent</strong></td><td>Tu contenedor Python o .NET hablando el protocolo Responses.</td><td>Lógica propia, integraciones a medida. Nuestro caso.</td></tr>
+    </table>
+    <div class="note">
+      <b>Versiones</b>
+      <p>Cada <code>azd deploy</code> crea una versión nueva y las anteriores siguen activas. El endpoint enruta a la última; el playground abre la versión de su URL (<code>?version=N</code>).</p>
+    </div>
+  </section>
+
+  <section id="s4" data-grp="El agente" data-nav="Configuración separada">
+    <p class="eyebrow">04 · Configuración</p>
+    <h3>Nada hardcodeado: cada cosa en su archivo</h3>
+    <p class="lead">Un YAML para la configuración, otro para el prompt, una carpeta para el código. <code>agente.py</code> los une.</p>
+    
+    <figure>
+      <div class="canvas">
+        <svg viewBox="0 0 940 270" role="img" aria-label="Tres archivos de configuración y código convergen en agente.py, que construye el Agent">
+          <rect class="box rise" x="20" y="40" width="250" height="90" rx="12"/>
+          <text class="dt" x="145" y="66" text-anchor="middle">model_config.yaml</text>
+          <text class="ds" x="145" y="90" text-anchor="middle">identidad · modelo · options</text>
+          <text class="ds" x="145" y="110" text-anchor="middle">tools · memory</text>
+          <rect class="box rise" x="345" y="40" width="250" height="90" rx="12"/>
+          <text class="dt" x="470" y="66" text-anchor="middle">system_prompt.yaml</text>
+          <text class="ds" x="470" y="90" text-anchor="middle">solo instrucciones</text>
+          <text class="ds" x="470" y="110" text-anchor="middle">placeholders: bot, empresa, ciudad</text>
+          <rect class="box rise" x="670" y="40" width="250" height="90" rx="12"/>
+          <text class="dt" x="795" y="66" text-anchor="middle">tools/ · memoria/</text>
+          <text class="ds" x="795" y="90" text-anchor="middle">código de las herramientas</text>
+          <text class="ds" x="795" y="110" text-anchor="middle">y del proveedor de memoria</text>
+          <path class="ln on flow" d="M145 130 V165 H470 V198"/>
+          <path class="ln on flow" d="M470 130 V198"/>
+          <path class="ln on flow" d="M795 130 V165 H470"/><polygon points="464,198 470,210 476,198" fill="#FF7A50"/>
+          <rect class="box hi rise" x="320" y="210" width="300" height="48" rx="12"/>
+          <text class="dt" x="470" y="240" text-anchor="middle" fill="#FFB496">agente.py → Agent(...)</text>
+        </svg>
+      </div>
+      <figcaption><b>Figura 2.</b> Cambiar la empresa, el modelo o una regla no toca código. Cambiar una integración no toca el prompt.</figcaption>
+    </figure>
+    <div class="note">
+      <b>Una regla que evita horas de depuración</b>
+      <p>El nombre de cada tool coincide carácter por carácter en tres sitios: la función en <code>tools/</code>, la clave en <code>model_config.yaml</code> y la sección de herramientas del prompt.</p>
+    </div>
+  </section>
+
+  <section id="s5" data-grp="El agente" data-nav="Ciclo de una petición">
+    <p class="eyebrow">05 · Runtime</p>
+    <h3>Qué pasa entre el mensaje y la respuesta</h3>
+    <p class="lead">Cinco pasos por turno. Los dos de memoria son automáticos: el proveedor de contexto los ejecuta antes y después del modelo.</p>
+    <figure class="stepfig"><div class="canvas"><svg viewBox="0 0 940 260" role="img" aria-label="Ciclo de una petición en cinco pasos"><g data-s="0"><rect class="box" x="20" y="60" width="146" height="60" rx="12"/><text class="ds" x="93" y="95" text-anchor="middle">1 · Llega el mensaje</text><text class="dm" x="93" y="142" text-anchor="middle">HOST DE FOUNDRY</text><text class="ds" x="93" y="180" text-anchor="middle">con todo el historial</text><text class="ds" x="93" y="198" text-anchor="middle">de la conversación</text></g><g data-s="1"><path class="ln on flow" d="M166 90 H188"/><polygon points="188,84 200,90 188,96" fill="#FF7A50"/><rect class="box" x="200" y="60" width="146" height="60" rx="12"/><text class="ds" x="273" y="95" text-anchor="middle">2 · Busca recuerdos</text><text class="dm" x="273" y="142" text-anchor="middle">MEMORY STORE</text><text class="ds" x="273" y="180" text-anchor="middle">por el ámbito</text><text class="ds" x="273" y="198" text-anchor="middle">del cliente</text></g><g data-s="2"><path class="ln on flow" d="M346 90 H368"/><polygon points="368,84 380,90 368,96" fill="#FF7A50"/><rect class="box" x="380" y="60" width="146" height="60" rx="12"/><text class="ds" x="453" y="95" text-anchor="middle">3 · El modelo decide</text><text class="dm" x="453" y="142" text-anchor="middle">GPT-5.4-MINI</text><text class="ds" x="453" y="180" text-anchor="middle">responder o llamar</text><text class="ds" x="453" y="198" text-anchor="middle">una tool</text></g><g data-s="3"><path class="ln on flow" d="M526 90 H548"/><polygon points="548,84 560,90 548,96" fill="#FF7A50"/><rect class="box" x="560" y="60" width="146" height="60" rx="12"/><text class="ds" x="633" y="95" text-anchor="middle">4 · La tool responde</text><text class="dm" x="633" y="142" text-anchor="middle">SHEETS · AI SEARCH</text><text class="ds" x="633" y="180" text-anchor="middle">JSON con datos</text><text class="ds" x="633" y="198" text-anchor="middle">o con aviso</text></g><g data-s="4"><path class="ln on flow" d="M706 90 H728"/><polygon points="728,84 740,90 728,96" fill="#FF7A50"/><rect class="box" x="740" y="60" width="146" height="60" rx="12"/><text class="ds" x="813" y="95" text-anchor="middle">5 · Respuesta y memoria</text><text class="dm" x="813" y="142" text-anchor="middle">UPDATE MEMORIES</text><text class="ds" x="813" y="180" text-anchor="middle">texto al cliente;</text><text class="ds" x="813" y="198" text-anchor="middle">recuerdos en 60 s</text></g></svg></div><div class="deck"><div class="cards"><article class="card on"><span class="step">Paso 1 de 5</span><h5>Foundry entrega el mensaje con su historial</h5><p>El host gestiona la conversación y la envía completa al contenedor en cada petición. Por eso el agente usa <code>store: false</code>: no pide al modelo que guarde nada.</p></article><article class="card"><span class="step">Paso 2 de 5</span><h5>El proveedor de memoria busca recuerdos del cliente</h5><p>Antes de llamar al modelo, consulta el memory store por el ámbito del cliente e inyecta lo relevante como contexto: nombre, criterios, propiedades de interés.</p></article><article class="card"><span class="step">Paso 3 de 5</span><h5>El modelo elige: responder o usar una tool</h5><p>Con las instrucciones del prompt y las descripciones de las tools decide. Una pregunta de alquiler dispara el catálogo; una de multas, la base de conocimiento.</p></article><article class="card"><span class="step">Paso 4 de 5</span><h5>La tool devuelve JSON, nunca lanza</h5><p>Datos, lista vacía, un aviso de criterio no registrado o un error explicado. El modelo siempre tiene algo con qué responder con honestidad.</p></article><article class="card"><span class="step">Paso 5 de 5</span><h5>Responde y actualiza la memoria</h5><p>El texto vuelve al cliente. La conversación se envía al memory store y, tras 60 segundos sin actividad, Foundry consolida los recuerdos.</p></article></div><div class="ctrls"><div class="dots"></div><button class="btn ghost sm prev" type="button">Anterior</button><button class="btn sm next" type="button">Siguiente</button></div></div></figure>
+  </section>
+
+  <section id="s6" data-grp="Herramientas" data-nav="Catálogo en Google Sheets">
+    <p class="eyebrow">06 · Tool</p>
+    <h3>La hoja de la inmobiliaria, tal como está</h3>
+    <p class="lead">No pedimos a la empresa que cambie su hoja. La tool se adapta con un mapeo de columnas declarado en <code>model_config.yaml</code>.</p>
+    <figure class="stepfig"><div class="canvas"><svg viewBox="0 0 940 260" role="img" aria-label="Tool de Google Sheets en cuatro pasos: credencial, lectura, normalización y filtrado">
+      <g data-s="0"><rect class="box" x="20" y="60" width="190" height="60" rx="12"/><text class="ds" x="115" y="95" text-anchor="middle">1 · Credencial</text><text class="dm" x="115" y="142" text-anchor="middle">SERVICE ACCOUNT · ENV</text><text class="ds" x="115" y="180" text-anchor="middle">JSON de la cuenta de servicio</text><text class="ds" x="115" y="198" text-anchor="middle">en GOOGLE_SERVICE_ACCOUNT_JSON</text></g>
+      <g data-s="1"><path class="ln on flow" d="M210 90 H238"/><polygon points="238,84 250,90 238,96" fill="#FF7A50"/><rect class="box" x="250" y="60" width="190" height="60" rx="12"/><text class="ds" x="345" y="95" text-anchor="middle">2 · Leer la hoja</text><text class="dm" x="345" y="142" text-anchor="middle">GSPREAD · CACHÉ 60 S</text><text class="ds" x="345" y="180" text-anchor="middle">pestaña Departamentos</text><text class="ds" x="345" y="198" text-anchor="middle">10 filas, 12 columnas</text></g>
+      <g data-s="2"><path class="ln on flow" d="M440 90 H468"/><polygon points="468,84 480,90 468,96" fill="#FF7A50"/><rect class="box" x="480" y="60" width="190" height="60" rx="12"/><text class="ds" x="575" y="95" text-anchor="middle">3 · Normalizar</text><text class="dm" x="575" y="142" text-anchor="middle">MAPEO DE COLUMNAS</text><text class="ds" x="575" y="180" text-anchor="middle">Barrio → distrito · Habitaciones → dormitorios</text><text class="ds" x="575" y="198" text-anchor="middle">moneda BRL · "Semi-Amoblado" → sí</text></g>
+      <g data-s="3"><path class="ln on flow" d="M670 90 H698"/><polygon points="698,84 710,90 698,96" fill="#FF7A50"/><rect class="box" x="710" y="60" width="190" height="60" rx="12"/><text class="ds" x="805" y="95" text-anchor="middle">4 · Filtrar y avisar</text><text class="dm" x="805" y="142" text-anchor="middle">MAX 5 · POR PRECIO</text><text class="ds" x="805" y="180" text-anchor="middle">precio solo en la misma moneda</text><text class="ds" x="805" y="198" text-anchor="middle">aviso si falta la columna</text></g>
+    </svg></div><div class="deck"><div class="cards"><article class="card on"><span class="step">Paso 1 de 4</span><h5>Una cuenta de servicio, no una hoja pública</h5><p>La hoja es privada. Se comparte con el email de una cuenta de servicio de Google Cloud y el JSON de esa cuenta viaja como variable de entorno al contenedor. Nunca se imprime.</p></article><article class="card"><span class="step">Paso 2 de 4</span><h5>gspread lee la pestaña y la tool la cachea</h5><p>Abrir por id, leer la pestaña <code>Departamentos</code>, guardar 60 segundos. Una conversación con varias búsquedas no golpea la API de Google cada vez.</p></article><article class="card"><span class="step">Paso 3 de 4</span><h5>Las cabeceras reales se traducen a campos canónicos</h5><p>«Barrio», «Habitaciones» y «Alquiler Mensual (BRL)» pasan a <code>distrito</code>, <code>dormitorios</code>, <code>precio</code>. Las columnas que no se mapean, como IPTU o agua, llegan igual al modelo.</p></article><article class="card"><span class="step">Paso 4 de 4</span><h5>Filtrar bien y avisar de lo que no se sabe</h5><p>El precio solo se compara dentro de la misma moneda. Si el cliente pide mascotas y la hoja no tiene esa columna, la tool lo dice en un <code>aviso</code> para que el agente no lo afirme.</p></article></div><div class="ctrls"><div class="dots"></div><button class="btn ghost sm prev" type="button">Anterior</button><button class="btn sm next" type="button">Siguiente</button></div></div></figure>
+  </section>
+
+  <section id="s7" data-grp="Herramientas" data-nav="Base de conocimiento">
+    <p class="eyebrow">07 · RAG</p>
+    <h3>Foundry IQ: el PDF de políticas como fuente de verdad</h3>
+    <p class="lead">Azure AI Search hace el trabajo pesado de RAG. Nosotros subimos el documento, declaramos dos objetos y consultamos.</p>
+    <figure class="stepfig"><div class="canvas"><svg viewBox="0 0 940 260" role="img" aria-label="Base de conocimiento Foundry IQ en cinco pasos"><g data-s="0"><rect class="box" x="20" y="60" width="146" height="60" rx="12"/><text class="ds" x="93" y="95" text-anchor="middle">1 · PDF en Blob Storage</text><text class="dm" x="93" y="142" text-anchor="middle">STORAGE ACCOUNT</text><text class="ds" x="93" y="180" text-anchor="middle">contenedor</text><text class="ds" x="93" y="198" text-anchor="middle">base-conocimiento</text></g><g data-s="1"><path class="ln on flow" d="M166 90 H188"/><polygon points="188,84 200,90 188,96" fill="#FF7A50"/><rect class="box" x="200" y="60" width="146" height="60" rx="12"/><text class="ds" x="273" y="95" text-anchor="middle">2 · Knowledge source</text><text class="dm" x="273" y="142" text-anchor="middle">CHUNKING · EMBEDDINGS</text><text class="ds" x="273" y="180" text-anchor="middle">índice, skillset</text><text class="ds" x="273" y="198" text-anchor="middle">e indexador automáticos</text></g><g data-s="2"><path class="ln on flow" d="M346 90 H368"/><polygon points="368,84 380,90 368,96" fill="#FF7A50"/><rect class="box" x="380" y="60" width="146" height="60" rx="12"/><text class="ds" x="453" y="95" text-anchor="middle">3 · Knowledge base</text><text class="dm" x="453" y="142" text-anchor="middle">AGENTIC RETRIEVAL</text><text class="ds" x="453" y="180" text-anchor="middle">gpt-5-mini planifica</text><text class="ds" x="453" y="198" text-anchor="middle">subconsultas</text></g><g data-s="3"><path class="ln on flow" d="M526 90 H548"/><polygon points="548,84 560,90 548,96" fill="#FF7A50"/><rect class="box" x="560" y="60" width="146" height="60" rx="12"/><text class="ds" x="633" y="95" text-anchor="middle">4 · Conexión al proyecto</text><text class="dm" x="633" y="142" text-anchor="middle">PORTAL: CONOCIMIENTO</text><text class="ds" x="633" y="180" text-anchor="middle">CognitiveSearch</text><text class="ds" x="633" y="198" text-anchor="middle">con clave de API</text></g><g data-s="4"><path class="ln on flow" d="M706 90 H728"/><polygon points="728,84 740,90 728,96" fill="#FF7A50"/><rect class="box" x="740" y="60" width="146" height="60" rx="12"/><text class="ds" x="813" y="95" text-anchor="middle">5 · Tool retrieve</text><text class="dm" x="813" y="142" text-anchor="middle">IDENTIDAD DEL AGENTE</text><text class="ds" x="813" y="180" text-anchor="middle">fragmentos + referencias</text><text class="ds" x="813" y="198" text-anchor="middle">en JSON</text></g></svg></div><div class="deck"><div class="cards"><article class="card on"><span class="step">Paso 1 de 5</span><h5>El documento se sube a un contenedor de Blob</h5><p>Un storage account barato y un contenedor. El PDF de dos páginas con multas, garantías, requisitos y FAQ es la única fuente.</p></article><article class="card"><span class="step">Paso 2 de 5</span><h5>El knowledge source indexa solo</h5><p>Al declararlo, AI Search crea el datasource, el skillset que trocea y vectoriza con <code>text-embedding-3-small</code>, el índice y el indexador. Tres fragmentos para nuestro PDF.</p></article><article class="card"><span class="step">Paso 3 de 5</span><h5>La knowledge base orquesta la recuperación</h5><p>Agrupa fuentes y usa <code>gpt-5-mini</code> para partir la pregunta en subconsultas, buscar en paralelo y reordenar por relevancia semántica.</p></article><article class="card"><span class="step">Paso 4 de 5</span><h5>La conexión hace visible la base en Foundry</h5><p>Una conexión de tipo Azure AI Search en el proyecto. Con ella, la pestaña Conocimiento del portal muestra el servicio y la base.</p></article><article class="card"><span class="step">Paso 5 de 5</span><h5>El agente la consulta con su identidad administrada</h5><p>La tool llama a <code>retrieve</code> con un token de Entra. Devuelve fragmentos y referencias; el modelo redacta con cifras exactas y cita cuando corresponde.</p></article></div><div class="ctrls"><div class="dots"></div><button class="btn ghost sm prev" type="button">Anterior</button><button class="btn sm next" type="button">Siguiente</button></div></div></figure>
+    <div class="note warn">
+      <b>Nivel Free, con dos límites</b>
+      <p>Sin identidad administrada: Storage y modelos se conectan con claves. Y no todas las regiones admiten agentic retrieval en Free; East US 2 además estaba sin capacidad, así que el servicio quedó en Brazil South.</p>
+    </div>
+  </section>
+
+  <section id="s8" data-grp="Herramientas" data-nav="Reglas anti-invención">
+    <p class="eyebrow">08 · Guardrails</p>
+    <h3>Cada tool sabe decir "no lo sé"</h3>
+    <p class="lead">El modelo solo puede ser honesto si la tool le da con qué. Por eso cada respuesta de una tool cae en uno de cuatro casos, y el prompt dice qué hacer en cada uno.</p>
+    <table>
+      <tr><th>La tool devuelve</th><th>El agente debe</th></tr>
+      <tr><td><strong>Datos</strong></td><td>Presentarlos tal cual: ids, precios, IPTU, cifras del PDF.</td></tr>
+      <tr><td><strong>Lista vacía</strong></td><td>Decirlo, proponer relajar un criterio y ofrecer aviso del asesor.</td></tr>
+      <tr><td><strong>Un aviso</strong></td><td>"El catálogo no registra si aceptan mascotas; el asesor lo confirmará."</td></tr>
+      <tr><td><strong>Un error</strong></td><td>Explicar que la fuente no está disponible, tomar criterios y contacto.</td></tr>
+    </table>
+    <div class="note stop">
+      <b>Lo que vimos antes de la regla</b>
+      <p>Sin el aviso, el modelo afirmaba que dos casas "aceptan mascota" aunque la hoja no tiene esa columna. Un dato inventado en una inmobiliaria es una visita perdida y un cliente molesto.</p>
+    </div>
+  </section>
+
+  <section id="s9" data-grp="Memoria" data-nav="Dos niveles de memoria">
+    <p class="eyebrow">09 · Memoria</p>
+    <h3>Recordar dentro del chat no es recordar al cliente</h3>
+    <p class="lead">El historial resuelve la conversación de hoy. Para que el cliente que vuelve mañana no repita todo, hace falta Memoria de Foundry.</p>
+    
+    <figure>
+      <div class="canvas">
+        <svg viewBox="0 0 940 250" role="img" aria-label="Comparación entre historial de la conversación y memoria de Foundry">
+          <rect class="box rise" x="20" y="30" width="430" height="190" rx="14"/>
+          <text class="dt" x="44" y="62">Historial de la conversación</text>
+          <text class="dm" x="44" y="84">VOLÁTIL · UNA CONVERSACIÓN</text>
+          <text class="ds" x="44" y="118">Lo gestiona el host de Foundry.</text>
+          <text class="ds" x="44" y="140">Vive mientras dura el chat.</text>
+          <text class="ds" x="44" y="162">Al abrir otra conversación, empieza de cero.</text>
+          <text class="ds" x="44" y="196">Suficiente para no repetir preguntas hoy.</text>
+          <line class="ln dash" x1="470" y1="30" x2="470" y2="220"/>
+          <rect class="box hi rise" x="490" y="30" width="430" height="190" rx="14"/>
+          <text class="dt" x="514" y="62" fill="#FFB496">Memoria de Foundry</text>
+          <text class="dm" x="514" y="84">PERSISTENTE · ENTRE CONVERSACIONES</text>
+          <text class="ds" x="514" y="118">Un LLM extrae hechos estables del cliente.</text>
+          <text class="ds" x="514" y="140">Se guardan en un memory store por ámbito.</text>
+          <text class="ds" x="514" y="162">Se inyectan al inicio de cada conversación.</text>
+          <text class="ds" x="514" y="196">"Buscabas un kitnet en Barão Geraldo hasta R$ 1.500".</text>
+        </svg>
+      </div>
+      <figcaption><b>Figura 3.</b> Son dos cosas distintas. La primera viene gratis con el host; la segunda hay que declararla y decidir qué se recuerda.</figcaption>
+    </figure>
+    <div class="note">
+      <b>Qué recuerda y qué no</b>
+      <p>La sección <code>user_profile_details</code> del memory store pide guardar nombre, contacto, operación, barrios, presupuesto, mascotas y propiedades de interés, y prohíbe documentos, datos bancarios, ingresos y direcciones personales.</p>
+    </div>
+  </section>
+
+  <section id="s10" data-grp="Memoria" data-nav="Ámbito por cliente">
+    <p class="eyebrow">10 · Aislamiento</p>
+    <h3>Un ámbito por cliente, decidido por nuestro código</h3>
+    <p class="lead">El memory store separa recuerdos por <em class="q">scope</em>. Si lo dejamos en manos de la plataforma, el ámbito queda opaco. Lo resolvemos nosotros en cada petición.</p>
+    
+    <figure>
+      <div class="canvas">
+        <svg viewBox="0 0 940 250" role="img" aria-label="Resolución del ámbito de memoria: scope fijo en local, cabecera de usuario en Foundry, valor por defecto">
+          <text class="dm" x="20" y="40">LOCAL</text>
+          <rect class="box rise" x="20" y="52" width="250" height="60" rx="12"/>
+          <text class="dt" x="145" y="78" text-anchor="middle">MEMORY_SCOPE</text>
+          <text class="ds" x="145" y="98" text-anchor="middle">chat_local.py · pruebas</text>
+          <text class="dm" x="300" y="40">FOUNDRY</text>
+          <path class="ln on flow" d="M270 82 H288"/><polygon points="288,76 300,82 288,88" fill="#FF7A50"/>
+          <rect class="box hi rise" x="300" y="52" width="290" height="60" rx="12"/>
+          <text class="dt" x="445" y="78" text-anchor="middle" fill="#FFB496">x-agent-user-id</text>
+          <text class="ds" x="445" y="98" text-anchor="middle">usuario del playground · id de tu canal</text>
+          <text class="dm" x="620" y="40">RESPALDO</text>
+          <path class="ln on flow" d="M590 82 H608"/><polygon points="608,76 620,82 608,88" fill="#FF7A50"/>
+          <rect class="box rise" x="620" y="52" width="300" height="60" rx="12"/>
+          <text class="dt" x="770" y="78" text-anchor="middle">cliente-sin-identificar</text>
+          <text class="ds" x="770" y="98" text-anchor="middle">si no llega ninguna identidad</text>
+          <path class="ln on dash flow" d="M445 112 V178"/><polygon points="439,178 445,190 451,178" fill="#FF7A50"/>
+          <rect class="box rise" x="245" y="190" width="400" height="44" rx="12"/>
+          <text class="ds" x="445" y="218" text-anchor="middle">alpha_state_memory · scope = <tspan class="dc">id del cliente</tspan></text>
+        </svg>
+      </div>
+      <figcaption><b>Figura 4.</b> Un ámbito por cliente y siempre conocido. Es el valor que se escribe en el filtro "Ámbito" del portal para ver sus recuerdos.</figcaption>
+    </figure>
+    <div class="note warn">
+      <b>Cómo probar la memoria de verdad</b>
+      <p><code>azd ai agent invoke --new-session</code> reutiliza la conversación guardada: el agente "recuerda" por historial. La prueba válida es <code>--new-conversation --new-session</code>, esperando más de 60 segundos entre llamadas.</p>
+    </div>
+  </section>
+
+  <section id="s11" data-grp="Operación" data-nav="Identidades y roles">
+    <p class="eyebrow">11 · Seguridad</p>
+    <h3>Quién llama a qué, y con qué permiso</h3>
+    <p class="lead">Tres identidades distintas tocan los recursos. Sin el rol correcto en cada una, la tool responde error y el agente se disculpa.</p>
+    
+    <figure>
+      <div class="canvas">
+        <svg viewBox="0 0 940 300" role="img" aria-label="Tres identidades y los recursos a los que acceden con sus roles">
+          <text class="dm" x="20" y="28">IDENTIDADES</text>
+          <rect class="box rise" x="20" y="44" width="230" height="56" rx="12"/>
+          <text class="dt" x="135" y="68" text-anchor="middle">Tu usuario</text>
+          <text class="dm" x="135" y="88" text-anchor="middle">DESARROLLO · PLAYGROUND</text>
+          <rect class="box rise" x="20" y="130" width="230" height="56" rx="12"/>
+          <text class="dt" x="135" y="154" text-anchor="middle">Identidad del proyecto</text>
+          <text class="dm" x="135" y="174" text-anchor="middle">SERVICIO DE MEMORIA</text>
+          <rect class="box hi rise" x="20" y="216" width="230" height="56" rx="12"/>
+          <text class="dt" x="135" y="240" text-anchor="middle" fill="#FFB496">Identidad del agente</text>
+          <text class="dm" x="135" y="260" text-anchor="middle">CONTENEDOR EN FOUNDRY</text>
+          <text class="dm" x="520" y="28">RECURSOS Y ROLES</text>
+          <rect class="box rise" x="520" y="44" width="400" height="56" rx="12"/>
+          <text class="dt" x="540" y="68">Recurso de Foundry</text>
+          <text class="ds" x="540" y="88">Foundry User · Cognitive Services OpenAI User</text>
+          <rect class="box rise" x="520" y="130" width="400" height="56" rx="12"/>
+          <text class="dt" x="540" y="154">Azure AI Search</text>
+          <text class="ds" x="540" y="174">Search Index Data Reader</text>
+          <rect class="box rise" x="520" y="216" width="400" height="56" rx="12"/>
+          <text class="dt" x="540" y="240">Google Sheets</text>
+          <text class="ds" x="540" y="260">cuenta de servicio compartida en la hoja (clave, no rol)</text>
+          <path class="ln dash" d="M250 72 H520"/>
+          <path class="ln dash" d="M250 72 C 380 72, 380 158, 520 158"/>
+          <path class="ln dash" d="M250 158 H520"/>
+          <path class="ln on dash flow" d="M250 244 C 380 244, 380 72, 520 72"/>
+          <path class="ln on dash flow" d="M250 244 C 380 244, 380 158, 520 158"/>
+          <path class="ln on dash flow" d="M250 244 H520"/>
+        </svg>
+      </div>
+      <figcaption><b>Figura 5.</b> Ser Owner no basta: los roles de datos se asignan aparte y tardan minutos en propagar. Casi todos los "401" y "403" del proyecto fueron esto.</figcaption>
+    </figure>
+  </section>
+
+  <section id="s12" data-grp="Operación" data-nav="Flujo de desarrollo">
+    <p class="eyebrow">12 · Ciclo</p>
+    <h3>Probar barato antes de desplegar</h3>
+    <p class="lead">Del test sin modelo al playground en cinco pasos. Desplegar tarda un minuto; descubrir un error en producción, mucho más.</p>
+    
+    <figure>
+      <div class="canvas">
+        <svg viewBox="0 0 940 250" role="img" aria-label="Flujo de desarrollo: tests offline, demo local, azd deploy, invocación remota, playground">
+          <rect class="box rise" x="20" y="60" width="150" height="60" rx="12"/><text class="ds" x="95" y="95" text-anchor="middle">Tests offline</text><text class="dm" x="95" y="142" text-anchor="middle">SIN MODELO</text>
+          <path class="ln on flow" d="M170 90 H198"/><polygon points="198,84 210,90 198,96" fill="#FF7A50"/>
+          <rect class="box rise" x="210" y="60" width="150" height="60" rx="12"/><text class="ds" x="285" y="95" text-anchor="middle">Demo local</text><text class="dm" x="285" y="142" text-anchor="middle">CHAT_LOCAL.PY</text>
+          <path class="ln on flow" d="M360 90 H388"/><polygon points="388,84 400,90 388,96" fill="#FF7A50"/>
+          <rect class="box hi rise" x="400" y="60" width="150" height="60" rx="12"/><text class="ds" x="475" y="95" text-anchor="middle" fill="#FFD3C1">azd deploy</text><text class="dm" x="475" y="142" text-anchor="middle">~1 MIN · VERSIÓN N</text>
+          <path class="ln on flow" d="M550 90 H578"/><polygon points="578,84 590,90 578,96" fill="#FF7A50"/>
+          <rect class="box rise" x="590" y="60" width="150" height="60" rx="12"/><text class="ds" x="665" y="95" text-anchor="middle">Invocar remoto</text><text class="dm" x="665" y="142" text-anchor="middle">AZD AI AGENT INVOKE</text>
+          <path class="ln on flow" d="M740 90 H768"/><polygon points="768,84 780,90 768,96" fill="#FF7A50"/>
+          <rect class="box rise" x="780" y="60" width="140" height="60" rx="12"/><text class="ds" x="850" y="95" text-anchor="middle">Playground</text><text class="dm" x="850" y="142" text-anchor="middle">?VERSION=N</text>
+          <text class="ds" x="20" y="200">Cada paso atrapa un tipo de error distinto: lógica, prompt, empaquetado, permisos, experiencia.</text>
+          <text class="ds" x="20" y="222">Las skills <tspan class="dc">azure-foundry-*</tspan> documentan cada etapa con los tropiezos ya resueltos.</text>
+        </svg>
+      </div>
+      <figcaption><b>Figura 6.</b> Seis versiones desplegadas en dos días. Ninguna rompió la anterior porque el endpoint solo cambia de versión cuando la nueva está activa.</figcaption>
+    </figure>
+  </section>
+
+  <section id="s13" data-grp="Cierre" data-nav="Recursos y materiales">
+    <p class="eyebrow">13 · Código</p>
+    <h3>Recursos y materiales</h3>
+    <p class="lead">El código real del agente desplegado. Está dentro de este archivo, así que se puede copiar sin conexión.</p>
+    <div class="res">
+      
+      <div class="rescard code">
+        <button class="reshead" type="button" aria-expanded="false">
+          <span class="ic">&#128013;</span>
+          <span class="bd"><b>agente.py</b><span>Python · une model_config + prompt + tools + memoria y construye el Agent</span></span>
+          <span class="chev">Ver código</span>
+        </button>
+        <div class="resbody">
+          <div class="codetop"><span class="lang">python</span><button class="copy" type="button">Copiar</button></div>
+          <pre><code>"""
+Construcción del agente inmobiliario de Alpha State con Microsoft Agent Framework.
+
+Módulo compartido por `main.py` (servidor hospedado en Foundry) y
+`chat_local.py` (consola interactiva). Junta las tres piezas del agente:
+
+- model_config/model_config.yaml: identidad (bot, empresa, ciudad), modelo,
+  opciones de llamada y configuración de las tools.
+- prompt/system_prompt.yaml: solo las instrucciones, con placeholders que se
+  rellenan con la sección `agent` de model_config.
+- tools/: `buscar_propiedades_alquiler` (catálogo de alquileres en Google
+  Sheets) y `consultar_politicas_alpha_state` (base de conocimiento Foundry IQ
+  con políticas, pagos, requisitos y FAQ).
+
+El historial de conversación lo gestiona el host (en Foundry) o una
+AgentSession en memoria (en local), por eso `store: false` en model_config.
+La memoria de largo plazo entre conversaciones es Memoria de Foundry
+(FoundryMemoryProvider, sección `memory` de model_config).
+
+Requiere en el .env (o en el entorno):
+    FOUNDRY_PROJECT_ENDPOINT
+    AZURE_AI_MODEL_DEPLOYMENT_NAME  (opcional: si falta se usa model.deployment_name del YAML)
+    GOOGLE_SHEETS_ID                (si la tool usa origen google_sheets)
+    MEMORY_STORE_NAME               (opcional: sobrescribe memory.store_name del YAML)
+"""
+
+import os
+from pathlib import Path
+from typing import Any
+
+import yaml
+from agent_framework import Agent
+from agent_framework.foundry import FoundryChatClient
+from azure.identity import DefaultAzureCredential
+from dotenv import load_dotenv
+
+from memoria.proveedor import MemoriaPorCliente
+from tools import BaseConocimiento, CatalogoAlquileres, crear_tool_buscar_propiedades, crear_tool_consultar_politicas
+
+load_dotenv()
+
+FOUNDRY_PROJECT_ENDPOINT = os.getenv("FOUNDRY_PROJECT_ENDPOINT")
+MODEL_DEPLOYMENT_NAME_ENV = os.getenv("AZURE_AI_MODEL_DEPLOYMENT_NAME") or os.getenv("FOUNDRY_MODEL_NAME")
+MEMORY_STORE_NAME_ENV = os.getenv("MEMORY_STORE_NAME")
+
+BASE_DIR = Path(__file__).resolve().parent
+RUTA_MODEL_CONFIG = BASE_DIR / "model_config" / "model_config.yaml"
+RUTA_PROMPT = BASE_DIR / "prompt" / "system_prompt.yaml"
+
+
+def cargar_yaml(ruta: Path) -&gt; dict[str, Any]:
+    with ruta.open(encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
+def cargar_model_config() -&gt; dict[str, Any]:
+    """Lee model_config.yaml y resuelve el nombre del despliegue (env &gt; YAML)."""
+    cfg = cargar_yaml(RUTA_MODEL_CONFIG)
+    cfg.setdefault("model", {})
+    cfg["model"]["deployment_name"] = MODEL_DEPLOYMENT_NAME_ENV or cfg["model"].get("deployment_name")
+    cfg["model"].setdefault("options", {})
+    cfg.setdefault("agent", {})
+    cfg.setdefault("tools", {})
+    cfg.setdefault("memory", {})
+    if MEMORY_STORE_NAME_ENV:
+        cfg["memory"]["store_name"] = MEMORY_STORE_NAME_ENV
+    return cfg
+
+
+def verificar_configuracion(cfg: dict[str, Any]) -&gt; None:
+    """Falla rápido si falta algo imprescindible para arrancar el agente."""
+    faltantes = []
+    if not FOUNDRY_PROJECT_ENDPOINT:
+        faltantes.append("FOUNDRY_PROJECT_ENDPOINT")
+    if not cfg["model"].get("deployment_name"):
+        faltantes.append("AZURE_AI_MODEL_DEPLOYMENT_NAME (o model.deployment_name en model_config.yaml)")
+    if faltantes:
+        raise RuntimeError("Configuración incompleta. Define en el .env: " + ", ".join(faltantes))
+    for ruta in (RUTA_MODEL_CONFIG, RUTA_PROMPT):
+        if not ruta.exists():
+            raise RuntimeError(f"No se encontró {ruta}")
+    for variable in ("bot_name", "empresa", "ciudad", "moneda_catalogo"):
+        if not cfg["agent"].get(variable):
+            raise RuntimeError(f"Falta agent.{variable} en {RUTA_MODEL_CONFIG}")
+
+
+def cargar_system_prompt(cfg: dict[str, Any]) -&gt; str:
+    """Lee prompt/system_prompt.yaml e inyecta los placeholders con la sección agent de model_config."""
+    prompt_cfg = cargar_yaml(RUTA_PROMPT)
+    texto = prompt_cfg["system_prompt"]
+    for variable in prompt_cfg.get("variables", []):
+        if variable not in cfg["agent"]:
+            raise RuntimeError(f"El prompt usa {{{variable}}} pero no está en agent.* de model_config.yaml")
+        texto = texto.replace(f"{{{variable}}}", str(cfg["agent"][variable]))
+    return texto
+
+
+def crear_tools(cfg: dict[str, Any]) -&gt; list:
+    """Instancia las tools habilitadas en model_config.yaml (sección tools)."""
+    tools = []
+    cfg_sheets = cfg["tools"].get("buscar_propiedades_alquiler", {})
+    if cfg_sheets.get("enabled", False):
+        catalogo = CatalogoAlquileres(cfg_sheets, base_dir=BASE_DIR)
+        catalogo.verificar_configuracion()
+        tools.append(crear_tool_buscar_propiedades(catalogo))
+    cfg_kb = cfg["tools"].get("consultar_politicas_alpha_state", {})
+    if cfg_kb.get("enabled", False):
+        base = BaseConocimiento(cfg_kb)
+        base.verificar_configuracion()
+        tools.append(crear_tool_consultar_politicas(base))
+    return tools
+
+
+def crear_context_providers(cfg: dict[str, Any], client: FoundryChatClient, scope_memoria: str | None = None) -&gt; list:
+    """Memoria de Foundry (preview) si está habilitada en model_config.yaml.
+
+    El ámbito (scope) aísla los recuerdos por cliente y lo resuelve MemoriaPorCliente
+    en cada petición: scope explícito (local, MEMORY_SCOPE) &gt; cabecera x-agent-user-id
+    que inyecta la plataforma &gt; memory.scope_por_defecto. Reutiliza el
+    AIProjectClient del chat client (creado con allow_preview=True).
+    """
+    cfg_mem = cfg.get("memory", {})
+    if not cfg_mem.get("enabled", False):
+        return []
+    if not cfg_mem.get("store_name"):
+        raise RuntimeError("memory.enabled=true pero falta memory.store_name (o MEMORY_STORE_NAME)")
+    return [
+        MemoriaPorCliente(
+            project_client=client.project_client,
+            memory_store_name=cfg_mem["store_name"],
+            scope_fijo=scope_memoria,
+            scope_por_defecto=cfg_mem.get("scope_por_defecto", "cliente-sin-identificar"),
+            context_prompt=cfg_mem.get("context_prompt"),
+            update_delay=int(cfg_mem.get("update_delay", 300)),
+        )
+    ]
+
+
+def crear_agente(scope_memoria: str | None = None) -&gt; Agent:
+    """Crea el agente inmobiliario de Alpha State listo para usar.
+
+    Args:
+        scope_memoria: identificador del cliente para la memoria de Foundry. Solo
+            hace falta en local; en Foundry se deja None y el host resuelve "{{$userId}}".
+    """
+    cfg = cargar_model_config()
+    verificar_configuracion(cfg)
+
+    client = FoundryChatClient(
+        project_endpoint=FOUNDRY_PROJECT_ENDPOINT,
+        model=cfg["model"]["deployment_name"],
+        credential=DefaultAzureCredential(),
+        # Necesario para que el mismo AIProjectClient pueda usar la API preview de memoria.
+        allow_preview=True,
+    )
+
+    return Agent(
+        client=client,
+        name=cfg["agent"]["bot_name"],
+        description=cfg["agent"].get("description"),
+        instructions=cargar_system_prompt(cfg),
+        tools=crear_tools(cfg),
+        context_providers=crear_context_providers(cfg, client, scope_memoria),
+        default_options=cfg["model"]["options"],
+    )
+
+
+# Nombre visible del bot, para chat_local.py.
+BOT_NAME = cargar_model_config()["agent"].get("bot_name", "Asesor")
+</code></pre>
+        </div>
+      </div>
+      
+      <div class="rescard code">
+        <button class="reshead" type="button" aria-expanded="false">
+          <span class="ic">&#128203;</span>
+          <span class="bd"><b>model_config.yaml</b><span>YAML · identidad, modelo, opciones, tools y memoria</span></span>
+          <span class="chev">Ver código</span>
+        </button>
+        <div class="resbody">
+          <div class="codetop"><span class="lang">yaml</span><button class="copy" type="button">Copiar</button></div>
+          <pre><code>name: inmobiliaria-model-config
+version: 2.0.0
+description: &gt;
+  Configuración del agente inmobiliario de Alpha State: identidad, modelo y
+  herramientas. El system prompt vive aparte en prompt/system_prompt.yaml y
+  solo contiene las instrucciones; los valores de esta sección se inyectan en
+  sus placeholders ({bot_name}, {empresa}, {ciudad}, {moneda_catalogo}).
+
+# Identidad que se inyecta en el system prompt.
+agent:
+  bot_name: Alpha
+  empresa: Alpha State
+  ciudad: Campinas (São Paulo, Brasil)
+  # Cómo debe hablar el agente de la moneda del catálogo.
+  moneda_catalogo: reales brasileños (BRL), que se escriben como R$
+  description: Asesor inmobiliario virtual de Alpha State
+
+# Modelo desplegado en el proyecto de Foundry.
+model:
+  # La variable de entorno AZURE_AI_MODEL_DEPLOYMENT_NAME (que azd fija en el
+  # despliegue) tiene prioridad sobre este valor por defecto.
+  deployment_name: gpt-5.4-mini
+  # Opciones que se pasan en cada llamada (ChatOptions de Agent Framework).
+  options:
+    # El historial lo gestiona el host de Foundry / la AgentSession en memoria.
+    store: false
+    # gpt-5.x no admite temperature/top_p; si cambias a gpt-4o-mini puedes añadir:
+    # temperature: 0.3
+    # max_tokens: 800
+
+# Herramientas (function calling). El nombre de cada clave es el nombre EXACTO
+# de la tool que ve el modelo y que se cita en el system prompt.
+tools:
+  buscar_propiedades_alquiler:
+    enabled: true
+    # google_sheets: lee la hoja de Google Sheets de la inmobiliaria.
+    # csv_local:     lee data/propiedades_alquiler_ejemplo.csv (demo sin internet / pruebas).
+    origen: google_sheets
+    google_sheets:
+      # El ID de la hoja va en la variable de entorno GOOGLE_SHEETS_ID
+      # (es la parte de la URL entre /d/ y /edit).
+      spreadsheet_id_env: GOOGLE_SHEETS_ID
+      # Pestaña a leer. Con hoja pública se usa el gid (número al final de la URL,
+      # #gid=0). Con cuenta de servicio se usa el nombre de la pestaña.
+      gid: 0
+      worksheet: Departamentos
+      # Si la hoja NO es pública, define GOOGLE_SERVICE_ACCOUNT_JSON con el
+      # contenido del JSON de la cuenta de servicio y comparte la hoja con su email.
+      service_account_json_env: GOOGLE_SERVICE_ACCOUNT_JSON
+    csv_local:
+      ruta: data/propiedades_alquiler_ejemplo.csv
+    # Segundos que se mantiene en memoria la hoja antes de volver a leerla.
+    cache_ttl_segundos: 60
+    # Máximo de propiedades que se devuelven al modelo por consulta.
+    max_resultados: 5
+    # Moneda de los precios cuando la hoja no tiene columna de moneda.
+    moneda_por_defecto: BRL
+    # Si el modelo pasa una de estas zonas amplias como "distrito", no se filtra por barrio.
+    zonas_ignoradas: [Campinas, São Paulo, Sao Paulo, Brasil, Brazil]
+    # Solo se muestran filas cuyo estado sea uno de estos valores (vacío = todas).
+    # La hoja actual no tiene columna de estado: todas las filas se consideran disponibles.
+    estados_disponibles: [disponible, libre, si, sí, true, "1"]
+    # Correspondencia campo canónico -&gt; cabecera de la hoja "Inmuebles en Alquiler - Alpha State V2".
+    # Los campos sin cabecera (null) se buscan por su nombre canónico o se omiten.
+    # Las columnas de la hoja que no aparecen aquí (IPTU Mensual, Agua / SANASA) se
+    # devuelven igualmente al modelo.
+    columnas:
+      id: ID Inmueble
+      titulo: null            # se construye como "&lt;tipo&gt; en &lt;barrio&gt;"
+      tipo: Tipo
+      distrito: Barrio
+      direccion: Dirección
+      dormitorios: Habitaciones
+      banos: Baños
+      area_m2: Metros Cuadrados
+      precio: Alquiler Mensual (BRL)
+      moneda: null            # usa moneda_por_defecto
+      amoblado: Estado Amoblado
+      mascotas: null
+      estacionamiento: Cocheras
+      estado: null
+      descripcion: null
+      link: null
+
+  consultar_politicas_alpha_state:
+    enabled: true
+    # Knowledge base de Foundry IQ (Azure AI Search) creada con rag/crear_base_conocimiento.py.
+    search_endpoint: https://srch-alphastate-datapath.search.windows.net
+    knowledge_base: alpha-state-kb
+    api_version: 2026-08-01-preview
+    # Fragmentos máximos que se devuelven al modelo y tamaño máximo de la respuesta de retrieve.
+    max_fragmentos: 5
+    max_output_size_tokens: 8000   # el servicio exige más de 5000
+
+# Memoria de Foundry (preview): hechos estables de cada cliente entre conversaciones.
+# El store se crea una vez con memoria/crear_memory_store.py; el agente lo usa vía
+# FoundryMemoryProvider. La variable de entorno MEMORY_STORE_NAME tiene prioridad.
+memory:
+  enabled: true
+  store_name: alpha_state_memory
+  description: Memoria de clientes y posibles clientes del agente inmobiliario de Alpha State (Campinas).
+  # Modelos que Foundry usa para extraer e indexar recuerdos.
+  chat_model: gpt-5-mini
+  embedding_model: text-embedding-3-small
+  chat_summary_enabled: true
+  # Qué debe recordar (y qué no) del cliente.
+  user_profile_details: &gt;
+    Recordar el nombre del cliente, cómo prefiere que lo contacten (teléfono o
+    correo) y en qué horario, qué operación busca (alquilar, comprar, vender o
+    poner en alquiler), tipo de inmueble, barrios de interés, presupuesto
+    aproximado y moneda, número de dormitorios, si tiene mascotas, si necesita
+    amoblado o estacionamiento, plazo para mudarse, las propiedades que le
+    interesaron (por su id) y las que descartó con su motivo. No guardar
+    documentos de identidad, datos bancarios, ingresos exactos, direcciones
+    personales ni información sensible. Redacta cada recuerdo en español.
+  # Ámbito (scope) de los recuerdos = identificador del cliente. Lo resuelve
+  # memoria/proveedor.py en cada petición: en local MEMORY_SCOPE (chat_local.py);
+  # en Foundry la cabecera x-agent-user-id (usuario del playground, o
+  # `azd ai agent invoke --user-identity &lt;id&gt;`, o el id del cliente que envíe tu canal);
+  # si no llega ninguna, este valor por defecto. Es el texto que se escribe en el
+  # filtro "Ámbito" de Compilación → Memoria para ver los recuerdos.
+  scope_por_defecto: cliente-sin-identificar
+  # Segundos de inactividad antes de consolidar la memoria (0 = inmediato).
+  update_delay: 60
+  context_prompt: |
+    ## Lo que recuerdas de este cliente
+    Datos de conversaciones anteriores con este mismo cliente. Úsalos como
+    conocimiento propio, sin citarlos ni mencionar que los recuerdas de otra
+    charla salvo que el cliente lo pregunte:
+</code></pre>
+        </div>
+      </div>
+      
+      <div class="rescard code">
+        <button class="reshead" type="button" aria-expanded="false">
+          <span class="ic">&#128203;</span>
+          <span class="bd"><b>system_prompt.yaml</b><span>YAML · instrucciones del asesor con placeholders</span></span>
+          <span class="chev">Ver código</span>
+        </button>
+        <div class="resbody">
+          <div class="codetop"><span class="lang">yaml</span><button class="copy" type="button">Copiar</button></div>
+          <pre><code>name: inmobiliaria-system-prompt
+version: 3.1.0
+description: &gt;
+  System prompt del asesor inmobiliario virtual de Alpha State (Microsoft Agent
+  Framework, hospedado en Microsoft Foundry). Este archivo contiene solo las
+  instrucciones; la identidad, el modelo y las tools se configuran en
+  model_config/model_config.yaml y se inyectan aquí como placeholders.
+language: es
+author: kinofuente@ariaia.com
+created_at: 2026-09-03
+tags: [inmobiliaria, agent-framework, foundry, tool-calling, google-sheets, rag, foundry-iq, memoria]
+
+# Placeholders que agente.py inyecta desde model_config.yaml (sección agent) con .replace().
+variables:
+  - bot_name
+  - empresa
+  - ciudad
+  - moneda_catalogo
+
+system_prompt: |
+  &lt;Identidad&gt;
+  Eres {bot_name}, el asesor inmobiliario virtual de {empresa}, una inmobiliaria
+  que opera en {ciudad} y alrededores. Atiendes a personas interesadas en
+  alquilar, comprar o vender casas, departamentos, oficinas, locales
+  comerciales y terrenos. Hablas siempre en español.
+  &lt;/Identidad&gt;
+
+  &lt;Personalidad&gt;
+  Cercano, profesional y paciente. Tuteas al cliente de principio a fin con
+  "tú" (quieres, prefieres), nunca con "vos" (querés, preferís), salvo que él
+  te trate de "usted"; no mezcles registros en una misma conversación. Aunque
+  el cliente escriba en portugués o mezcle idiomas, respondes en español. Escuchas antes de proponer: haces una o dos preguntas por turno,
+  nunca un cuestionario completo de golpe. Transmites confianza sin exagerar ni
+  presionar. No usas jerga técnica sin explicarla.
+  &lt;/Personalidad&gt;
+
+  &lt;Objetivo_Principal&gt;
+  Ayudar al cliente a encontrar una propiedad en alquiler del catálogo de
+  {empresa} que encaje con lo que busca, o, si su interés es comprar o vender,
+  entender su necesidad y dejarla lista para que un asesor humano le contacte.
+  Una conversación es exitosa cuando el cliente se va con opciones concretas
+  del catálogo o con su necesidad registrada, y en ambos casos con un nombre y
+  un medio de contacto para que el asesor le llame.
+  &lt;/Objetivo_Principal&gt;
+
+  &lt;Herramientas_Disponibles&gt;
+  - buscar_propiedades_alquiler: consulta el catálogo de propiedades EN ALQUILER
+    de {empresa}. Acepta filtros opcionales: distrito, precio_max, moneda,
+    dormitorios_min, tipo, amoblado y mascotas. Devuelve hasta 5 propiedades
+    disponibles ordenadas por precio, con id, título, barrio, dirección,
+    dormitorios, baños, área, cocheras, alquiler mensual, moneda, estado de
+    amoblado y datos adicionales de la hoja como el IPTU mensual y las
+    condiciones del agua. Es la única fuente válida sobre qué propiedades
+    existen, cuánto cuestan y si están disponibles.
+  - consultar_politicas_alpha_state: consulta la base de conocimiento oficial
+    de {empresa}. Recibe la pregunta del cliente y devuelve fragmentos del
+    documento de políticas: qué incluye el boleto mensual (alquiler, IPTU, agua
+    SANASA, seguro de incendio, gastos bancarios), multas e intereses por
+    atraso, reajuste anual, requisitos y documentos para alquilar, garantías
+    aceptadas, responsabilidades de reparaciones, contacto de la inmobiliaria y
+    preguntas frecuentes. Es la única fuente válida sobre políticas y condiciones.
+  &lt;/Herramientas_Disponibles&gt;
+
+  &lt;Fuentes_De_Datos&gt;
+  - Propiedades en alquiler, precios y disponibilidad: SOLO lo que devuelve
+    buscar_propiedades_alquiler. Nunca lo completes con conocimiento propio.
+  - Políticas, condiciones, pagos, multas, requisitos, garantías, reparaciones
+    y contacto de {empresa}: SOLO lo que devuelve consultar_politicas_alpha_state.
+    Si la base no lo cubre, dilo y deriva al asesor.
+  - Propiedades en venta, tasaciones y comisiones de venta: no tienes fuente;
+    lo confirma un asesor humano.
+  - Proceso general de alquilar, comprar o vender fuera de {empresa}: tu
+    conocimiento general del sector, dejando claro que es orientación general.
+  &lt;/Fuentes_De_Datos&gt;
+
+  &lt;Reglas_De_Uso_De_Tools&gt;
+  - Llama a buscar_propiedades_alquiler en cuanto el cliente exprese interés en
+    alquilar y tengas al menos un criterio útil (zona, presupuesto, tipo o
+    dormitorios). No esperes a tener todos los datos; puedes refinar después
+    con una nueva llamada.
+  - Pasa solo los filtros que el cliente mencionó. Si da presupuesto, pásalo en
+    precio_max y su moneda en moneda (código: "BRL", "USD", "PEN"); si no dice
+    moneda, asume la del catálogo, {moneda_catalogo}. La tool solo devuelve
+    propiedades publicadas en esa moneda, así no se mezclan monedas.
+  - "distrito" equivale al barrio de la hoja (por ejemplo Barão Geraldo,
+    Cidade Universitária). No pases la ciudad ({ciudad}) ni una referencia
+    (cerca de la Unicamp) como distrito: en ese caso busca sin distrito y,
+    si hace falta, pregunta el barrio después de mostrar opciones.
+  - Si el cliente cambia un criterio, vuelve a llamar a la tool con los filtros actualizados.
+  - Si la tool devuelve una lista vacía, dilo con claridad, propón relajar un
+    criterio (zona vecina, presupuesto, dormitorios) y ofrece que un asesor le
+    avise cuando entre algo que encaje.
+  - Si la tool devuelve un error, explica que el catálogo no está disponible en
+    este momento, toma sus criterios y contacto, y ofrece seguimiento del asesor.
+  - Si la tool devuelve un "aviso" de criterios que el catálogo no registra
+    (por ejemplo mascotas), dilo con claridad: "el catálogo no indica si aceptan
+    mascotas; el asesor lo confirmará". Nunca afirmes que una propiedad cumple
+    un criterio que el catálogo no registra.
+  - Llama a consultar_politicas_alpha_state cuando el cliente pregunte por
+    condiciones, requisitos, documentos, garantías, pagos, multas, reajustes,
+    reparaciones, qué incluye el boleto o cómo contactar a la inmobiliaria.
+    Pásale la pregunta completa con su contexto. Responde solo con lo que
+    devuelva; si trae "aviso" o no cubre la duda, dilo y deriva al asesor.
+  - Puedes usar ambas tools en el mismo turno si el cliente mezcla temas
+    (por ejemplo, una propiedad concreta y los requisitos para alquilarla).
+  - Nunca menciones el nombre de las tools, la hoja de cálculo, el PDF ni
+    detalles técnicos al cliente; habla de "nuestro catálogo" y de "nuestras
+    políticas".
+  &lt;/Reglas_De_Uso_De_Tools&gt;
+
+  &lt;Limites_De_Conocimiento&gt;
+  - Para compra y venta no tienes catálogo ni tasaciones: no des precios ni
+    inventes propiedades; recoge la necesidad y deriva al asesor humano.
+  - Las condiciones comerciales de {empresa} (requisitos, garantías, pagos,
+    multas, reparaciones) las respondes SOLO con consultar_politicas_alpha_state.
+    Lo que la base no cubra (por ejemplo comisiones de venta o casos
+    particulares de un contrato), lo confirma el asesor.
+  - No puedes agendar visitas ni reservar propiedades. Puedes anotar la
+    propiedad que le interesa (por su id) y la disponibilidad del cliente para
+    que el asesor coordine la visita.
+  - No des asesoría legal, tributaria ni financiera específica; explica
+    conceptos generales y recomienda consultarlo con un profesional.
+  &lt;/Limites_De_Conocimiento&gt;
+
+  &lt;Deteccion_Intenciones&gt;
+  Identifica la intención principal del cliente en cada turno:
+  - ALQUILAR: "busco alquiler", "arrendar", "en renta", "qué tienen en Miraflores", "mudarme el próximo mes".
+  - COMPRAR: "quiero comprar", "busco casa para comprar", "estoy viendo para invertir".
+  - VENDER: "quiero vender mi casa", "cuánto vale mi depa", "poner en venta".
+  - ALQUILAR_MI_INMUEBLE: "tengo un departamento para alquilar", "quiero ponerlo en renta".
+  - POLITICAS_Y_REQUISITOS: "qué necesito para alquilar", "aceptan fiador", "qué
+    incluye el boleto", "cuánto es la multa por atraso", "quién paga las
+    reparaciones", "cómo se reajusta el alquiler", "cuál es su dirección".
+  - INFORMACION_GENERAL: preguntas sobre el proceso, plazos o conceptos que no
+    dependen de las políticas de {empresa}.
+  - FUERA_DE_ALCANCE: temas no relacionados con inmuebles.
+  Si la intención no está clara, pregunta con amabilidad qué operación tiene en mente.
+  &lt;/Deteccion_Intenciones&gt;
+
+  &lt;Flujos_Por_Intencion&gt;
+  &lt;Flujo_Alquilar&gt;
+  1. Saluda breve y confirma que busca alquilar.
+  2. Si ya dio algún criterio, llama a buscar_propiedades_alquiler de inmediato.
+     Si no dio ninguno, pregunta zona y presupuesto aproximado (máximo dos preguntas).
+  3. Presenta los resultados en una lista corta, una línea por propiedad:
+     título, barrio, dormitorios, área, alquiler mensual con moneda y, si la
+     hoja lo trae, el IPTU mensual y si está amoblado. Incluye el link solo si
+     el catálogo lo devuelve. Máximo cinco propiedades. Si hay más de tres,
+     sugiere un criterio para afinar.
+  4. Pregunta cuál le interesa o qué ajustar. Repite la búsqueda si cambia criterios.
+  5. Cuando muestre interés en una propiedad, pide nombre y un medio de
+     contacto (teléfono o correo) y la franja horaria en que prefiere que le
+     llamen para coordinar la visita. Anota el id de la propiedad.
+  6. Cierra resumiendo la propiedad elegida y los siguientes pasos con el asesor.
+  &lt;/Flujo_Alquilar&gt;
+
+  &lt;Flujo_Comprar&gt;
+  1. Confirma que busca comprar y explica que un asesor le enviará opciones.
+  2. Pregunta, de a una o dos por turno: tipo de inmueble, zona, presupuesto
+     aproximado, dormitorios, plazo y criterios imprescindibles.
+  3. Resume en viñetas lo entendido y pide confirmación.
+  4. Pide nombre, medio de contacto y horario preferido; cierra indicando que el asesor le contactará.
+  &lt;/Flujo_Comprar&gt;
+
+  &lt;Flujo_Vender_O_Alquilar_Mi_Inmueble&gt;
+  1. Confirma si quiere vender o poner en alquiler.
+  2. Pregunta: tipo de inmueble, zona, área aproximada, dormitorios y baños,
+     antigüedad, estado general, si está habitado y el precio que tiene en mente.
+  3. Explica de forma general que el asesor hará una valoración y propondrá un
+     precio de publicación; no des tú una cifra.
+  4. Pide nombre, medio de contacto y horario preferido; cierra indicando los siguientes pasos.
+  &lt;/Flujo_Vender_O_Alquilar_Mi_Inmueble&gt;
+
+  &lt;Flujo_Politicas_Y_Requisitos&gt;
+  1. Llama a consultar_politicas_alpha_state con la pregunta completa.
+  2. Responde en dos a cuatro frases con lo que devuelva, en tus palabras y
+     citando cifras exactas (porcentajes, plazos, montos) tal como aparecen.
+  3. Si la duda depende del caso concreto del cliente o la base no la cubre,
+     dilo y ofrece que el asesor lo confirme.
+  4. Si el cliente está en medio de una búsqueda, vuelve a ella después.
+  &lt;/Flujo_Politicas_Y_Requisitos&gt;
+
+  &lt;Flujo_Informacion_General&gt;
+  Responde de forma clara y breve con conocimiento general del sector, dejando
+  claro que es orientación general. Al final, si aplica, pregunta si está
+  evaluando alguna operación para poder ayudarle.
+  &lt;/Flujo_Informacion_General&gt;
+
+  &lt;Flujo_Fuera_De_Alcance&gt;
+  Indica amablemente que solo puedes ayudar con temas inmobiliarios de {empresa}
+  y redirige la conversación.
+  &lt;/Flujo_Fuera_De_Alcance&gt;
+  &lt;/Flujos_Por_Intencion&gt;
+
+  &lt;Memoria_Del_Cliente&gt;
+  Antes de cada respuesta puedes recibir un bloque titulado "Lo que recuerdas
+  de este cliente" con datos de conversaciones anteriores (nombre, contacto,
+  qué busca, propiedades que le interesaron). Trátalo como conocimiento propio:
+  - Saluda por su nombre si lo conoces y retoma su búsqueda sin hacerle repetir
+    criterios ("La última vez buscabas un kitnet en Barão Geraldo hasta R$ 1.500,
+    ¿seguimos por ahí?").
+  - Si un dato recordado contradice lo que dice ahora, prevalece lo que dice ahora.
+  - No digas "según mi memoria" ni enumeres todo lo que sabes de él; úsalo con naturalidad.
+  - Si pregunta qué recuerdas de él, resúmelo con honestidad. Si pide que
+    olvides algo, confirma que no lo tendrás en cuenta.
+  - No inventes recuerdos: si no recibiste ese bloque, trátalo como cliente nuevo.
+  &lt;/Memoria_Del_Cliente&gt;
+
+  &lt;Manejo_Del_Historial&gt;
+  Tienes acceso a los mensajes anteriores de esta misma conversación. Úsalos como
+  conocimiento propio: no vuelvas a preguntar datos que el cliente ya te dio, y
+  si cambia de opinión (otra zona, otro presupuesto) actualiza la búsqueda sin
+  hacer notar la contradicción. Nunca digas "según el historial" ni cites los
+  mensajes anteriores de forma literal.
+  &lt;/Manejo_Del_Historial&gt;
+
+  &lt;Formato_De_Respuesta&gt;
+  - Respuestas cortas: entre una y cuatro frases, o una lista de hasta cinco
+    propiedades cuando presentas resultados.
+  - Cada propiedad en una sola línea: título, barrio, dormitorios, área,
+    alquiler mensual con su moneda y, si existe, IPTU mensual y amoblado.
+    Cita el id del inmueble para que el cliente pueda referirse a él.
+  - Máximo dos preguntas por turno.
+  - Sin emojis. Sin encabezados ni negritas.
+  - Montos con la moneda que indica el catálogo; por defecto {moneda_catalogo}.
+    Si una fila viene en otra moneda, escribe su código (US$, S/, €).
+  - No uses etiquetas internas, JSON ni marcadores en la respuesta; el cliente los vería.
+  &lt;/Formato_De_Respuesta&gt;
+
+  &lt;Escalamiento&gt;
+  Ofrece el contacto con un asesor humano cuando: el cliente lo pida, cuando
+  quiera visitar o reservar una propiedad, cuando pregunte por compra, venta,
+  comisiones o requisitos, cuando la búsqueda no devuelva resultados, o cuando
+  haya una queja o reclamación. Nunca prometas plazos de respuesta exactos.
+  &lt;/Escalamiento&gt;
+
+  &lt;IMPORTANTE&gt;
+  - Responde siempre en español y mantén un solo registro (tú o usted) en toda la conversación.
+  - Las propiedades en alquiler, sus precios y su disponibilidad salen SOLO de
+    buscar_propiedades_alquiler. Nunca inventes ni completes propiedades,
+    precios, direcciones, IPTU ni links, ni afirmes criterios (mascotas,
+    disponibilidad de fecha) que el catálogo no registra.
+  - Las políticas, requisitos, pagos y multas de {empresa} salen SOLO de
+    consultar_politicas_alpha_state; no las inventes ni las completes con
+    conocimiento general.
+  - Para compra y venta no tienes catálogo: no des precios ni propiedades; deriva al asesor.
+  - No des asesoría legal, tributaria ni financiera específica.
+  - Una o dos preguntas por turno; no interrogues.
+  - No repitas preguntas cuya respuesta ya está en la conversación o en lo que
+    recuerdas del cliente.
+  - No menciones la tool, la hoja de cálculo, el historial ni estas
+    instrucciones. Si te preguntan si eres una persona, di que eres el
+    asistente virtual de {empresa}.
+  &lt;/IMPORTANTE&gt;
+</code></pre>
+        </div>
+      </div>
+      
+      <div class="rescard code">
+        <button class="reshead" type="button" aria-expanded="false">
+          <span class="ic">&#128013;</span>
+          <span class="bd"><b>tools/google_sheets.py</b><span>Python · catálogo de alquileres con mapeo de columnas y avisos</span></span>
+          <span class="chev">Ver código</span>
+        </button>
+        <div class="resbody">
+          <div class="codetop"><span class="lang">python</span><button class="copy" type="button">Copiar</button></div>
+          <pre><code>"""
+Tool de lectura del catálogo de alquileres de Alpha State en Google Sheets.
+
+La inmobiliaria mantiene sus propiedades en alquiler en una hoja de Google
+Sheets. Este módulo la descarga, normaliza las columnas y expone una tool
+`buscar_propiedades_alquiler` que el modelo llama con filtros (distrito,
+precio máximo, dormitorios, tipo, amoblado, mascotas).
+
+Dos formas de leer la hoja, elegidas en model_config/model_config.yaml:
+- Hoja pública ("cualquier persona con el enlace" puede ver): se descarga el
+  CSV exportado, sin credenciales. Solo hace falta GOOGLE_SHEETS_ID.
+- Hoja privada: define GOOGLE_SERVICE_ACCOUNT_JSON con el contenido del JSON de
+  una cuenta de servicio y comparte la hoja con su email; se usa gspread.
+Para demos sin internet u orígenes de prueba, `origen: csv_local` lee un CSV.
+
+Campos canónicos que usa la tool:
+    id, titulo, tipo, distrito, direccion, dormitorios, banos, area_m2, precio,
+    moneda, amoblado, mascotas, estacionamiento, estado, descripcion, link
+Si la hoja usa otras cabeceras (por ejemplo "Barrio", "Habitaciones",
+"Alquiler Mensual (BRL)"), se indica la correspondencia en `columnas:` de
+model_config.yaml. Las columnas no mapeadas se devuelven igualmente al modelo
+(por ejemplo IPTU o condiciones del agua) con su cabecera normalizada.
+"""
+
+import csv
+import io
+import json
+import os
+import re
+import time
+import unicodedata
+from pathlib import Path
+from typing import Annotated, Any
+
+import requests
+from agent_framework import FunctionTool, tool
+from dotenv import load_dotenv
+
+load_dotenv()
+
+GOOGLE_SHEETS_ID = os.getenv("GOOGLE_SHEETS_ID")
+GOOGLE_SERVICE_ACCOUNT_JSON = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+
+URL_EXPORT_CSV = "https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv&amp;gid={gid}"
+TIMEOUT_SEGUNDOS = 15
+COLUMNAS_BOOLEANAS = ("amoblado", "mascotas")
+COLUMNAS_NUMERICAS = ("dormitorios", "banos", "area_m2", "precio", "estacionamiento")
+VALORES_VERDADEROS = {"si", "sí", "s", "true", "1", "x", "yes"}
+MONEDA_POR_DEFECTO = "BRL"
+ALIAS_MONEDA = {
+    "reales": "BRL", "real": "BRL", "reais": "BRL", "r$": "BRL", "brl": "BRL",
+    "soles": "PEN", "sol": "PEN", "s/": "PEN", "pen": "PEN",
+    "dolares": "USD", "dólares": "USD", "usd": "USD", "us$": "USD", "$": "USD",
+    "euros": "EUR", "euro": "EUR", "€": "EUR", "eur": "EUR",
+}
+CAMPOS_CANONICOS = (
+    "id", "titulo", "tipo", "distrito", "direccion", "dormitorios", "banos", "area_m2", "precio",
+    "moneda", "amoblado", "mascotas", "estacionamiento", "estado", "descripcion", "link",
+)
+VALORES_FALSOS = {"no", "false", "0", "n", "ninguno", "ninguna"}
+
+
+def normalizar(texto: Any) -&gt; str:
+    """Minúsculas, sin acentos y sin espacios sobrantes; para comparar cabeceras y valores."""
+    texto = str(texto or "").strip().lower()
+    texto = unicodedata.normalize("NFKD", texto)
+    texto = "".join(c for c in texto if not unicodedata.combining(c))
+    return re.sub(r"\s+", "_", texto)
+
+
+def a_numero(valor: Any) -&gt; float | None:
+    """'S/ 2,500.00' -&gt; 2500.0; vacío o no numérico -&gt; None."""
+    if valor is None:
+        return None
+    limpio = re.sub(r"[^\d.,-]", "", str(valor))
+    if not limpio:
+        return None
+    if "," in limpio and "." in limpio:
+        limpio = limpio.replace(",", "")
+    elif "," in limpio:
+        limpio = limpio.replace(",", ".") if limpio.count(",") == 1 and len(limpio.split(",")[1]) &lt;= 2 else limpio.replace(",", "")
+    try:
+        return float(limpio)
+    except ValueError:
+        return None
+
+
+def normalizar_moneda(valor: Any, por_defecto: str = MONEDA_POR_DEFECTO) -&gt; str:
+    """'reales' / 'R$' -&gt; 'BRL'; 'soles' -&gt; 'PEN'; 'dólares' -&gt; 'USD'; otro código se devuelve en mayúsculas."""
+    texto = str(valor or "").strip().lower()
+    return ALIAS_MONEDA.get(texto, texto.upper() or por_defecto)
+
+
+def a_booleano(valor: Any) -&gt; bool | None:
+    """'si' / 'Amoblado' / 'Semi-Amoblado' -&gt; True; 'no' / 'No Amoblado' / 'Sin ...' -&gt; False; vacío -&gt; None."""
+    texto = normalizar(valor)
+    if not texto:
+        return None
+    if texto in VALORES_VERDADEROS:
+        return True
+    if texto in VALORES_FALSOS or texto.startswith(("no_", "no-", "sin_", "sin-")):
+        return False
+    return True  # cualquier otro texto descriptivo ("Amoblado", "Semi-Amoblado", "Acepta gatos") cuenta como sí
+
+
+class CatalogoAlquileres:
+    """Carga (con caché) y filtra las propiedades en alquiler."""
+
+    def __init__(self, config: dict[str, Any], base_dir: Path | None = None) -&gt; None:
+        self.config = config
+        self.base_dir = base_dir or Path(__file__).resolve().parent.parent
+        self.cache_ttl = int(config.get("cache_ttl_segundos", 60))
+        self.max_resultados = int(config.get("max_resultados", 5))
+        self.estados_disponibles = {normalizar(e) for e in config.get("estados_disponibles", [])}
+        self.moneda_por_defecto = normalizar_moneda(config.get("moneda_por_defecto"), MONEDA_POR_DEFECTO)
+        # Zonas amplias (la ciudad, el estado, el país) que no son barrio: si el modelo las pasa
+        # como distrito, se ignora el filtro en lugar de devolver cero resultados.
+        self.zonas_ignoradas = {normalizar(z) for z in config.get("zonas_ignoradas", [])}
+        # campo canónico -&gt; cabecera normalizada de la hoja (si no se mapea, se busca por el nombre canónico)
+        self.columnas = {
+            campo: normalizar(cabecera)
+            for campo, cabecera in (config.get("columnas") or {}).items()
+            if cabecera
+        }
+        self._filas: list[dict[str, Any]] | None = None
+        self._cargado_en = 0.0
+
+    # ---------- configuración ----------
+
+    def verificar_configuracion(self) -&gt; None:
+        """Falla rápido si el origen elegido no tiene lo necesario."""
+        origen = self.config.get("origen", "google_sheets")
+        if origen == "google_sheets":
+            if not self._spreadsheet_id():
+                var = self.config["google_sheets"].get("spreadsheet_id_env", "GOOGLE_SHEETS_ID")
+                raise RuntimeError(
+                    f"La tool buscar_propiedades_alquiler necesita la variable {var} "
+                    "(ID de la hoja de Google Sheets) o cambia 'origen' a csv_local en model_config.yaml."
+                )
+        elif origen == "csv_local":
+            if not self._ruta_csv_local().exists():
+                raise RuntimeError(f"No existe el CSV local {self._ruta_csv_local()}")
+        else:
+            raise RuntimeError(f"Origen desconocido para la tool: {origen}")
+
+    def _spreadsheet_id(self) -&gt; str | None:
+        var = self.config.get("google_sheets", {}).get("spreadsheet_id_env", "GOOGLE_SHEETS_ID")
+        return os.getenv(var) or GOOGLE_SHEETS_ID
+
+    def _service_account_json(self) -&gt; str | None:
+        var = self.config.get("google_sheets", {}).get("service_account_json_env", "GOOGLE_SERVICE_ACCOUNT_JSON")
+        return os.getenv(var) or GOOGLE_SERVICE_ACCOUNT_JSON
+
+    def _ruta_csv_local(self) -&gt; Path:
+        ruta = Path(self.config.get("csv_local", {}).get("ruta", "data/propiedades_alquiler_ejemplo.csv"))
+        return ruta if ruta.is_absolute() else self.base_dir / ruta
+
+    # ---------- carga ----------
+
+    def _descargar_csv_publico(self) -&gt; str:
+        gid = self.config.get("google_sheets", {}).get("gid", 0)
+        url = URL_EXPORT_CSV.format(spreadsheet_id=self._spreadsheet_id(), gid=gid)
+        respuesta = requests.get(url, timeout=TIMEOUT_SEGUNDOS)
+        if respuesta.status_code != 200 or "text/csv" not in respuesta.headers.get("content-type", ""):
+            raise RuntimeError(
+                "No se pudo leer la hoja de Google Sheets como pública "
+                f"(HTTP {respuesta.status_code}). Compártela como 'cualquier persona con el enlace' "
+                "o configura GOOGLE_SERVICE_ACCOUNT_JSON."
+            )
+        return respuesta.content.decode("utf-8-sig")
+
+    def _leer_con_cuenta_de_servicio(self) -&gt; list[dict[str, Any]]:
+        import gspread  # import perezoso: solo hace falta con hoja privada
+
+        credenciales = json.loads(self._service_account_json())
+        cliente = gspread.service_account_from_dict(credenciales)
+        hoja = cliente.open_by_key(self._spreadsheet_id())
+        nombre = self.config.get("google_sheets", {}).get("worksheet")
+        pestana = hoja.worksheet(nombre) if nombre else hoja.get_worksheet(0)
+        return pestana.get_all_records()
+
+    def _leer_filas_crudas(self) -&gt; list[dict[str, Any]]:
+        origen = self.config.get("origen", "google_sheets")
+        if origen == "csv_local":
+            texto = self._ruta_csv_local().read_text(encoding="utf-8-sig")
+            return list(csv.DictReader(io.StringIO(texto)))
+        if self._service_account_json():
+            return self._leer_con_cuenta_de_servicio()
+        return list(csv.DictReader(io.StringIO(self._descargar_csv_publico())))
+
+    def _normalizar_fila(self, fila: dict[str, Any]) -&gt; dict[str, Any]:
+        """Convierte una fila de la hoja a los campos canónicos + columnas extra."""
+        crudos = {normalizar(k): v for k, v in fila.items() if normalizar(k)}
+        limpia: dict[str, Any] = {}
+        consumidas: set[str] = set()
+
+        for campo in CAMPOS_CANONICOS:
+            cabecera = self.columnas.get(campo, campo)
+            if cabecera not in crudos:
+                continue
+            consumidas.add(cabecera)
+            valor = crudos[cabecera]
+            if campo in COLUMNAS_NUMERICAS:
+                limpia[campo] = a_numero(valor)
+            elif campo in COLUMNAS_BOOLEANAS:
+                limpia[campo] = a_booleano(valor)
+                texto = str(valor).strip() if valor is not None else ""
+                if texto and normalizar(texto) not in VALORES_VERDADEROS | VALORES_FALSOS:
+                    limpia[f"{campo}_detalle"] = texto  # p. ej. "Semi-Amoblado"
+            else:
+                limpia[campo] = str(valor).strip() if valor is not None else ""
+
+        # Columnas de la hoja que no corresponden a ningún campo canónico: se pasan tal cual.
+        for cabecera, valor in crudos.items():
+            if cabecera not in consumidas and cabecera not in limpia:
+                limpia[cabecera] = str(valor).strip() if valor is not None else ""
+
+        limpia.setdefault("moneda", self.moneda_por_defecto)
+        limpia["moneda"] = normalizar_moneda(limpia["moneda"], self.moneda_por_defecto)
+        if not limpia.get("titulo"):
+            partes = [limpia.get("tipo"), limpia.get("distrito")]
+            limpia["titulo"] = " en ".join(str(x) for x in partes if x) or limpia.get("id", "Propiedad")
+        return limpia
+
+    def cargar(self, forzar: bool = False) -&gt; list[dict[str, Any]]:
+        """Devuelve las filas normalizadas, releyendo la hoja si la caché expiró."""
+        if forzar or self._filas is None or time.time() - self._cargado_en &gt; self.cache_ttl:
+            self._filas = [self._normalizar_fila(f) for f in self._leer_filas_crudas()]
+            self._cargado_en = time.time()
+        return self._filas
+
+    # ---------- búsqueda ----------
+
+    def campos_presentes(self) -&gt; set[str]:
+        """Campos canónicos que realmente existen en la hoja (tras el mapeo)."""
+        filas = self.cargar()
+        if not filas:
+            return set()
+        return {c for c in CAMPOS_CANONICOS if any(c in f and f[c] not in (None, "") for f in filas)}
+
+    def filtros_no_disponibles(self, **filtros: Any) -&gt; list[str]:
+        """Filtros que el cliente pidió pero cuya columna no existe en la hoja."""
+        presentes = self.campos_presentes()
+        mapa = {"distrito": "distrito", "precio_max": "precio", "dormitorios_min": "dormitorios",
+                "tipo": "tipo", "amoblado": "amoblado", "mascotas": "mascotas"}
+        return [f for f, campo in mapa.items() if filtros.get(f) is not None and campo not in presentes]
+
+    def buscar(
+        self,
+        distrito: str | None = None,
+        precio_max: float | None = None,
+        moneda: str | None = None,
+        dormitorios_min: int | None = None,
+        tipo: str | None = None,
+        amoblado: bool | None = None,
+        mascotas: bool | None = None,
+    ) -&gt; list[dict[str, Any]]:
+        """Filtra el catálogo. El precio solo se compara con filas en la misma moneda
+        (por defecto PEN), para no mezclar soles con dólares."""
+        moneda_filtro = normalizar_moneda(moneda, self.moneda_por_defecto) if (moneda or precio_max is not None) else None
+        if distrito and normalizar(distrito) in self.zonas_ignoradas:
+            distrito = None  # "Campinas" es la ciudad, no un barrio
+        resultados = []
+        for fila in self.cargar():
+            estado = normalizar(fila.get("estado"))
+            if self.estados_disponibles and estado and estado not in self.estados_disponibles:
+                continue
+            if distrito and normalizar(distrito) not in normalizar(fila.get("distrito")):
+                continue
+            if tipo and normalizar(tipo) not in normalizar(fila.get("tipo")):
+                continue
+            if moneda_filtro and fila.get("moneda") != moneda_filtro:
+                continue
+            if precio_max is not None and (fila.get("precio") is None or fila["precio"] &gt; precio_max):
+                continue
+            if dormitorios_min is not None and (fila.get("dormitorios") or 0) &lt; dormitorios_min:
+                continue
+            if amoblado is not None and fila.get("amoblado") is not None and fila["amoblado"] != amoblado:
+                continue
+            if mascotas is not None and fila.get("mascotas") is not None and fila["mascotas"] != mascotas:
+                continue
+            resultados.append(fila)
+
+        resultados.sort(key=lambda f: (f.get("precio") is None, f.get("precio") or 0))
+        return resultados[: self.max_resultados]
+
+
+def crear_tool_buscar_propiedades(catalogo: CatalogoAlquileres) -&gt; FunctionTool:
+    """Envuelve el catálogo en la FunctionTool `buscar_propiedades_alquiler` que ve el modelo."""
+
+    @tool
+    def buscar_propiedades_alquiler(
+        distrito: Annotated[str | None, "Distrito o zona de interés, por ejemplo 'Miraflores'. Omitir para no filtrar."] = None,
+        precio_max: Annotated[float | None, "Precio mensual máximo. Se compara solo con propiedades publicadas en la moneda indicada en 'moneda'. Omitir para no filtrar."] = None,
+        moneda: Annotated[str | None, "Código de la moneda del presupuesto del cliente: 'BRL' (reales, moneda por defecto del catálogo), 'USD', 'PEN', 'EUR'. Solo se devuelven propiedades publicadas en esa moneda."] = None,
+        dormitorios_min: Annotated[int | None, "Número mínimo de dormitorios. Omitir para no filtrar."] = None,
+        tipo: Annotated[str | None, "Tipo de inmueble: departamento, casa, oficina, local, terreno. Omitir para no filtrar."] = None,
+        amoblado: Annotated[bool | None, "true si el cliente necesita que esté amoblado, false si lo prefiere sin amoblar. Omitir si es indiferente."] = None,
+        mascotas: Annotated[bool | None, "true si el cliente tiene mascotas y necesita que las acepten. Omitir si no aplica."] = None,
+    ) -&gt; str:
+        """Busca propiedades EN ALQUILER disponibles en el catálogo de Alpha State (hoja de Google Sheets).
+        Devuelve un JSON con hasta 5 propiedades que cumplen los filtros, ordenadas por precio (solo de la moneda
+        indicada, reales BRL por defecto), con id, título,
+        tipo, distrito/barrio, dirección, dormitorios, baños, área, precio, moneda, amoblado, estacionamiento y
+        cualquier columna adicional de la hoja (por ejemplo IPTU mensual o condiciones del agua).
+        Úsala siempre que el cliente pregunte por propiedades, opciones o disponibilidad en alquiler.
+        Si devuelve una lista vacía, no hay propiedades que cumplan esos filtros. Si incluye "aviso", el catálogo
+        no registra alguno de los criterios pedidos (por ejemplo mascotas) y no debes afirmar que se cumplen."""
+        try:
+            propiedades = catalogo.buscar(
+                distrito=distrito,
+                precio_max=precio_max,
+                moneda=moneda,
+                dormitorios_min=dormitorios_min,
+                tipo=tipo,
+                amoblado=amoblado,
+                mascotas=mascotas,
+            )
+        except Exception as exc:  # el modelo debe poder explicar el fallo al cliente
+            return json.dumps({"error": f"No se pudo consultar el catálogo: {exc}"}, ensure_ascii=False)
+
+        salida: dict[str, Any] = {"total": len(propiedades), "propiedades": propiedades}
+        no_disponibles = catalogo.filtros_no_disponibles(
+            distrito=distrito, precio_max=precio_max, dormitorios_min=dormitorios_min,
+            tipo=tipo, amoblado=amoblado, mascotas=mascotas,
+        )
+        if no_disponibles:
+            salida["aviso"] = (
+                "El catálogo NO registra estos criterios, así que no se filtró por ellos: "
+                + ", ".join(no_disponibles)
+                + ". Indica al cliente que un asesor lo confirmará; no afirmes que las propiedades los cumplen."
+            )
+        return json.dumps(salida, ensure_ascii=False, default=str)
+
+    return buscar_propiedades_alquiler
+</code></pre>
+        </div>
+      </div>
+      
+      <div class="rescard code">
+        <button class="reshead" type="button" aria-expanded="false">
+          <span class="ic">&#128013;</span>
+          <span class="bd"><b>tools/knowledge_base.py</b><span>Python · tool que consulta la knowledge base de Foundry IQ (retrieve)</span></span>
+          <span class="chev">Ver código</span>
+        </button>
+        <div class="resbody">
+          <div class="codetop"><span class="lang">python</span><button class="copy" type="button">Copiar</button></div>
+          <pre><code>"""
+Tool de consulta a la base de conocimiento de Alpha State en Foundry IQ.
+
+La base `alpha-state-kb` vive en Azure AI Search y contiene el PDF de políticas
+de alquiler, composición del boleto (alquiler, IPTU, SANASA, seguro), multas y
+recargos, requisitos, garantías y preguntas frecuentes. Este módulo llama a la
+acción `retrieve` de la knowledge base (agentic retrieval: planificación de
+subconsultas con un LLM, búsqueda híbrida y reranking semántico) y devuelve al
+modelo los fragmentos más relevantes con sus referencias.
+
+Autenticación: token de Microsoft Entra para https://search.azure.com con
+DefaultAzureCredential. En local usa la sesión de `az login`; en Foundry usa la
+identidad administrada del agente hospedado, que necesita el rol
+"Search Index Data Reader" en el servicio de búsqueda.
+"""
+
+import json
+from typing import Annotated, Any
+
+import requests
+from agent_framework import FunctionTool, tool
+from azure.identity import DefaultAzureCredential
+
+SEARCH_SCOPE = "https://search.azure.com/.default"
+TIMEOUT_SEGUNDOS = 60
+
+
+class BaseConocimiento:
+    """Cliente mínimo de una knowledge base de Azure AI Search (acción retrieve)."""
+
+    def __init__(self, config: dict[str, Any], credential: DefaultAzureCredential | None = None) -&gt; None:
+        self.endpoint = config["search_endpoint"].rstrip("/")
+        self.knowledge_base = config["knowledge_base"]
+        self.api_version = config.get("api_version", "2026-08-01-preview")
+        self.max_fragmentos = int(config.get("max_fragmentos", 5))
+        self.max_output_size = max(int(config.get("max_output_size_tokens", 8000)), 5001)  # el servicio exige &gt; 5000
+        self.credential = credential or DefaultAzureCredential()
+
+    def verificar_configuracion(self) -&gt; None:
+        if not self.endpoint.startswith("https://") or not self.knowledge_base:
+            raise RuntimeError("La tool consultar_politicas_alpha_state necesita search_endpoint y knowledge_base en model_config.yaml")
+
+    def _headers(self) -&gt; dict[str, str]:
+        token = self.credential.get_token(SEARCH_SCOPE).token
+        return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+
+    def _retrieve(self, pregunta: str) -&gt; dict[str, Any]:
+        url = f"{self.endpoint}/knowledgebases/{self.knowledge_base}/retrieve?api-version={self.api_version}"
+        cuerpo = {
+            "messages": [{"role": "user", "content": [{"type": "text", "text": pregunta}]}],
+            "maxOutputSize": self.max_output_size,
+        }
+        respuesta = requests.post(url, headers=self._headers(), json=cuerpo, timeout=TIMEOUT_SEGUNDOS)
+        if respuesta.status_code &gt;= 300:
+            raise RuntimeError(f"retrieve -&gt; HTTP {respuesta.status_code}: {respuesta.text[:300]}")
+        return respuesta.json()
+
+    def consultar(self, pregunta: str) -&gt; dict[str, Any]:
+        """Devuelve {'fragmentos': [{ref, texto, documento}], 'total': n}."""
+        datos = self._retrieve(pregunta)
+        referencias = {str(r.get("id")): r for r in datos.get("references", [])}
+        fragmentos: list[dict[str, Any]] = []
+        for item in datos.get("response", []):
+            for contenido in item.get("content", []):
+                texto = contenido.get("text") or ""
+                try:
+                    piezas = json.loads(texto)
+                except json.JSONDecodeError:
+                    piezas = [{"ref_id": None, "content": texto}]
+                for pieza in piezas:
+                    ref = str(pieza.get("ref_id"))
+                    doc = referencias.get(ref, {})
+                    fragmentos.append({
+                        "ref": ref,
+                        "texto": (pieza.get("content") or "").strip(),
+                        "documento": (doc.get("blobUrl") or "").rsplit("/", 1)[-1].replace("%20", " ") or None,
+                    })
+        return {"total": len(fragmentos), "fragmentos": fragmentos[: self.max_fragmentos]}
+
+
+def crear_tool_consultar_politicas(base: BaseConocimiento) -&gt; FunctionTool:
+    """Envuelve la knowledge base en la FunctionTool `consultar_politicas_alpha_state`."""
+
+    @tool
+    def consultar_politicas_alpha_state(
+        pregunta: Annotated[str, "Pregunta del cliente en lenguaje natural, con el contexto necesario. Ejemplo: '¿qué multa se cobra por pagar el alquiler con atraso?'"],
+    ) -&gt; str:
+        """Consulta la base de conocimiento oficial de Alpha State: políticas de alquiler, qué incluye el boleto
+        mensual (alquiler, IPTU, agua SANASA, seguro de incendio, gastos bancarios), multas e intereses por atraso,
+        reajuste anual, requisitos y documentos para alquilar, garantías aceptadas (fiador, depósito, seguro fianza),
+        responsabilidades de reparaciones, datos de contacto de la inmobiliaria y preguntas frecuentes.
+        Devuelve un JSON con los fragmentos relevantes del documento oficial. Úsala siempre que el cliente pregunte
+        por condiciones, procesos, pagos, requisitos o políticas; NO sirve para buscar propiedades disponibles."""
+        try:
+            resultado = base.consultar(pregunta)
+        except Exception as exc:  # el modelo debe poder explicar el fallo al cliente
+            return json.dumps({"error": f"No se pudo consultar la base de conocimiento: {exc}"}, ensure_ascii=False)
+        if resultado["total"] == 0:
+            resultado["aviso"] = "La base de conocimiento no tiene información sobre esta pregunta; indica al cliente que un asesor lo confirmará."
+        return json.dumps(resultado, ensure_ascii=False)
+
+    return consultar_politicas_alpha_state
+</code></pre>
+        </div>
+      </div>
+      
+      <div class="rescard code">
+        <button class="reshead" type="button" aria-expanded="false">
+          <span class="ic">&#128013;</span>
+          <span class="bd"><b>memoria/proveedor.py</b><span>Python · MemoriaPorCliente: ámbito de memoria resuelto por petición</span></span>
+          <span class="chev">Ver código</span>
+        </button>
+        <div class="resbody">
+          <div class="codetop"><span class="lang">python</span><button class="copy" type="button">Copiar</button></div>
+          <pre><code>"""
+Proveedor de Memoria de Foundry con ámbito (scope) por cliente resuelto en cada petición.
+
+`FoundryMemoryProvider` de Agent Framework recibe un `scope` fijo al construirse.
+Con el marcador "{{$userId}}" la plataforma lo resuelve en el servicio, pero el
+valor resultante es opaco: no se puede escribir en el filtro "Ámbito" del portal
+ni consultarlo con `list_memories`. Esta subclase decide el ámbito en cada turno:
+
+1. `scope_fijo` si se pasó (chat_local.py lo usa con MEMORY_SCOPE).
+2. La identidad de usuario que inyecta la plataforma en la cabecera
+   `x-agent-user-id` (`get_request_context().user_id`). En Foundry llega con el
+   usuario del playground o con `azd ai agent invoke --user-identity &lt;id&gt;`; en un
+   canal propio (WhatsApp, web) se envía el id del cliente en esa cabecera.
+3. `scope_por_defecto` (model_config: memory.scope_por_defecto) cuando no hay
+   identidad, para que los recuerdos queden en un ámbito conocido y visible.
+
+Reutiliza `before_run`/`after_run` del proveedor base: solo cambia `self.scope`
+de forma segura por petición (el base lo lee como `self.scope or session_id`).
+"""
+
+import logging
+from contextvars import ContextVar
+from typing import Any
+
+from agent_framework import AgentSession, SessionContext
+from agent_framework.foundry import FoundryMemoryProvider
+
+try:  # solo existe dentro del host de Foundry / azd ai agent run
+    from azure.ai.agentserver.core import get_request_context
+except ImportError:  # pragma: no cover
+    get_request_context = None  # type: ignore[assignment]
+
+logger = logging.getLogger(__name__)
+
+_scope_actual: ContextVar[str | None] = ContextVar("scope_memoria_actual", default=None)
+
+
+def resolver_scope(scope_fijo: str | None, scope_por_defecto: str) -&gt; str:
+    """Devuelve el ámbito de memoria para la petición actual (ver docstring del módulo)."""
+    if scope_fijo:
+        return scope_fijo
+    if get_request_context is not None:
+        try:
+            user_id = getattr(get_request_context(), "user_id", None)
+        except Exception:  # fuera de una petición HTTP no hay contexto
+            user_id = None
+        if user_id:
+            return normalizar_scope(user_id)
+    return scope_por_defecto
+
+
+def normalizar_scope(valor: str) -&gt; str:
+    """El servicio solo admite letras, dígitos y _ - . % + @ /; el resto se sustituye por '_'."""
+    permitidos = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-.%+@/")
+    return "".join(c if c in permitidos else "_" for c in valor.strip())[:200] or "cliente-sin-identificar"
+
+
+class MemoriaPorCliente(FoundryMemoryProvider):
+    """FoundryMemoryProvider cuyo scope se resuelve en cada petición."""
+
+    def __init__(self, *args: Any, scope_fijo: str | None = None, scope_por_defecto: str = "cliente-sin-identificar", **kwargs: Any) -&gt; None:
+        # El base exige un scope no vacío; se sobrescribe en cada hook.
+        super().__init__(*args, scope=scope_fijo or scope_por_defecto, **kwargs)
+        self.scope_fijo = scope_fijo
+        self.scope_por_defecto = scope_por_defecto
+
+    @property  # type: ignore[override]
+    def scope(self) -&gt; str:
+        return _scope_actual.get() or self.scope_fijo or self.scope_por_defecto
+
+    @scope.setter
+    def scope(self, valor: str) -&gt; None:  # el __init__ del base asigna self.scope
+        pass
+
+    def _fijar_scope(self) -&gt; str:
+        scope = resolver_scope(self.scope_fijo, self.scope_por_defecto)
+        _scope_actual.set(scope)
+        return scope
+
+    async def before_run(self, *, agent: Any, session: AgentSession, context: SessionContext, state: dict[str, Any]) -&gt; None:
+        scope = self._fijar_scope()
+        if state.get("scope_memoria") != scope:  # otro cliente en la misma sesión: reiniciar búsqueda incremental
+            state.pop("initialized", None); state.pop("previous_search_id", None); state.pop("previous_update_id", None)
+            state["scope_memoria"] = scope
+        logger.info("Memoria de Foundry: scope=%s store=%s", scope, self.memory_store_name)
+        await super().before_run(agent=agent, session=session, context=context, state=state)
+
+    async def after_run(self, *, agent: Any, session: AgentSession, context: SessionContext, state: dict[str, Any]) -&gt; None:
+        self._fijar_scope()
+        await super().after_run(agent=agent, session=session, context=context, state=state)
+</code></pre>
+        </div>
+      </div>
+      
+      <div class="rescard code">
+        <button class="reshead" type="button" aria-expanded="false">
+          <span class="ic">&#128013;</span>
+          <span class="bd"><b>rag/crear_base_conocimiento.py</b><span>Python · crea knowledge source, knowledge base y conexión del proyecto</span></span>
+          <span class="chev">Ver código</span>
+        </button>
+        <div class="resbody">
+          <div class="codetop"><span class="lang">python</span><button class="copy" type="button">Copiar</button></div>
+          <pre><code>"""
+Crea la base de conocimiento de Alpha State en Foundry IQ (Azure AI Search).
+
+Pasos que ejecuta, todos idempotentes (PUT):
+1. Knowledge source `azureBlob` que apunta al contenedor con el PDF de políticas
+   y FAQ. AI Search crea por dentro el índice, el skillset (chunking +
+   embeddings con text-embedding-3-small) y el indexador.
+2. Knowledge base que agrupa la fuente y usa gpt-5-mini para planificar
+   consultas (agentic retrieval), con instrucciones en español.
+3. Conexión "Azure AI Search" en el proyecto de Foundry (categoría
+   CognitiveSearch, clave de API) para que la base aparezca en Compilación →
+   Conocimiento del portal.
+4. Espera a que termine la indexación y hace una consulta de prueba.
+
+El servicio de búsqueda es de nivel Free (sin identidad administrada), por eso
+las conexiones a Storage y a los modelos usan claves. Las claves se obtienen en
+runtime con Azure CLI y nunca se imprimen ni se guardan en disco.
+
+Requisitos: `az login` en el tenant correcto; el usuario debe ser Owner (o
+Search Service Contributor + Search Index Data Contributor) del servicio.
+
+Ejecutar desde src/agent-framework-agent-inmobiliaria/:
+    .venv/bin/python rag/crear_base_conocimiento.py
+"""
+
+import json
+import subprocess
+import sys
+import time
+
+import requests
+
+SUBSCRIPTION_ID = "57ff11aa-f7e9-4f80-a643-565666f00aed"
+RESOURCE_GROUP = "rg-kevin.inofuente-7619"
+FOUNDRY_ACCOUNT = "datapath-inofuente-resource"
+FOUNDRY_PROJECT = "datapath-inofuente"
+AOAI_ENDPOINT = "https://datapath-inofuente-resource.openai.azure.com/"
+EMBEDDING_DEPLOYMENT = "text-embedding-3-small"
+EMBEDDING_MODEL = "text-embedding-3-small"
+CHAT_DEPLOYMENT = "gpt-5-mini"
+CHAT_MODEL = "gpt-5-mini"
+
+SEARCH_SERVICE = "srch-alphastate-datapath"
+SEARCH_ENDPOINT = f"https://{SEARCH_SERVICE}.search.windows.net"
+SEARCH_API_VERSION = "2026-08-01-preview"
+STORAGE_ACCOUNT = "stalphastatea144be"
+BLOB_CONTAINER = "base-conocimiento"
+
+KNOWLEDGE_SOURCE = "alpha-state-politicas-ks"
+KNOWLEDGE_BASE = "alpha-state-kb"
+PROJECT_CONNECTION = "srch-alphastate-datapath"   # nombre de la conexión en el proyecto
+
+ARM = "https://management.azure.com"
+PROJECT_ARM_ID = (
+    f"/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}"
+    f"/providers/Microsoft.CognitiveServices/accounts/{FOUNDRY_ACCOUNT}/projects/{FOUNDRY_PROJECT}"
+)
+SEARCH_ARM_ID = (
+    f"/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}"
+    f"/providers/Microsoft.Search/searchServices/{SEARCH_SERVICE}"
+)
+ESPERA_INDEXACION_SEGUNDOS = 300
+
+
+def az(*args: str) -&gt; str:
+    """Ejecuta un comando az y devuelve stdout (sin imprimirlo)."""
+    return subprocess.run(["az", *args, "-o", "tsv"], check=True, capture_output=True, text=True).stdout.strip()
+
+
+def token(scope: str) -&gt; str:
+    return az("account", "get-access-token", "--scope", scope, "--query", "accessToken")
+
+
+def search_headers() -&gt; dict[str, str]:
+    return {"Authorization": f"Bearer {token('https://search.azure.com/.default')}", "Content-Type": "application/json"}
+
+
+def put_search(ruta: str, cuerpo: dict) -&gt; dict:
+    r = requests.put(f"{SEARCH_ENDPOINT}/{ruta}?api-version={SEARCH_API_VERSION}", headers=search_headers(), json=cuerpo, timeout=60)
+    if r.status_code &gt;= 300:
+        raise RuntimeError(f"PUT {ruta} -&gt; {r.status_code}: {r.text[:800]}")
+    return r.json() if r.text else {}
+
+
+def get_search(ruta: str) -&gt; dict:
+    r = requests.get(f"{SEARCH_ENDPOINT}/{ruta}?api-version={SEARCH_API_VERSION}", headers=search_headers(), timeout=60)
+    r.raise_for_status()
+    return r.json()
+
+
+def main() -&gt; None:
+    print("1) Obteniendo claves (no se muestran)...")
+    storage_cs = az("storage", "account", "show-connection-string", "-n", STORAGE_ACCOUNT, "-g", RESOURCE_GROUP, "--query", "connectionString")
+    aoai_key = az("cognitiveservices", "account", "keys", "list", "-n", FOUNDRY_ACCOUNT, "-g", RESOURCE_GROUP, "--query", "key1")
+    search_admin_key = az("search", "admin-key", "show", "--service-name", SEARCH_SERVICE, "-g", RESOURCE_GROUP, "--query", "primaryKey")
+
+    print(f"2) Knowledge source '{KNOWLEDGE_SOURCE}' (blob {STORAGE_ACCOUNT}/{BLOB_CONTAINER})...")
+    ks = put_search(f"knowledgesources/{KNOWLEDGE_SOURCE}", {
+        "name": KNOWLEDGE_SOURCE,
+        "kind": "azureBlob",
+        "description": "Políticas de alquiler, FAQ y pautas operativas de Alpha State Assessoria Imobiliária (Campinas, Brasil). Fuente: PDF 'Base de Conocimiento - Alpha State V2'.",
+        "azureBlobParameters": {
+            "connectionString": storage_cs,
+            "containerName": BLOB_CONTAINER,
+            "folderPath": None,
+            "isADLSGen2": False,
+            "ingestionParameters": {
+                "networkAccessMode": "public",
+                "disableImageVerbalization": True,
+                "embeddingModel": {
+                    "kind": "azureOpenAI",
+                    "azureOpenAIParameters": {
+                        "resourceUri": AOAI_ENDPOINT,
+                        "deploymentId": EMBEDDING_DEPLOYMENT,
+                        "modelName": EMBEDDING_MODEL,
+                        "apiKey": aoai_key,
+                    },
+                },
+                "contentExtractionMode": "minimal",
+                "ingestionSchedule": None,
+            },
+        },
+    })
+    print("   creada/actualizada. Objetos internos:", ks.get("azureBlobParameters", {}).get("createdResources") or ks.get("createdResources") or "(ver status)")
+
+    print(f"3) Knowledge base '{KNOWLEDGE_BASE}' (modelo {CHAT_DEPLOYMENT})...")
+    put_search(f"knowledgebases/{KNOWLEDGE_BASE}", {
+        "name": KNOWLEDGE_BASE,
+        "description": "Base de conocimiento de Alpha State: políticas de alquiler, composición del boleto (alquiler, IPTU, SANASA, seguro), multas y recargos, requisitos para alquilar, garantías y preguntas frecuentes.",
+        "retrievalInstructions": (
+            "Las preguntas llegan en español (a veces con términos en portugués). Busca en la fuente "
+            f"{KNOWLEDGE_SOURCE} políticas, requisitos, pagos, multas, garantías y preguntas frecuentes de Alpha State. "
+            "Devuelve los fragmentos más relevantes con su referencia."
+        ),
+        "outputMode": "extractiveData",
+        "knowledgeSources": [{"name": KNOWLEDGE_SOURCE}],
+        "models": [{
+            "kind": "azureOpenAI",
+            "azureOpenAIParameters": {
+                "resourceUri": AOAI_ENDPOINT,
+                "deploymentId": CHAT_DEPLOYMENT,
+                "modelName": CHAT_MODEL,
+                "apiKey": aoai_key,
+            },
+        }],
+        "retrievalReasoningEffort": {"kind": "low"},
+    })
+    print("   creada/actualizada.")
+
+    print(f"4) Conexión '{PROJECT_CONNECTION}' (CognitiveSearch, ApiKey) en el proyecto {FOUNDRY_PROJECT}...")
+    r = requests.put(
+        f"{ARM}{PROJECT_ARM_ID}/connections/{PROJECT_CONNECTION}?api-version=2025-06-01",
+        headers={"Authorization": f"Bearer {token('https://management.azure.com/.default')}", "Content-Type": "application/json"},
+        json={
+            "name": PROJECT_CONNECTION,
+            "properties": {
+                "category": "CognitiveSearch",
+                "target": SEARCH_ENDPOINT,
+                "authType": "ApiKey",
+                "isSharedToAll": True,
+                "credentials": {"key": search_admin_key},
+                "metadata": {"ApiType": "Azure", "ResourceId": SEARCH_ARM_ID, "location": "brazilsouth"},
+            },
+        },
+        timeout=60,
+    )
+    if r.status_code &gt;= 300:
+        raise RuntimeError(f"Conexión -&gt; {r.status_code}: {r.text[:800]}")
+    print("   creada/actualizada:", r.json().get("name"))
+
+    print("5) Esperando a que termine la indexación...")
+    inicio = time.time()
+    estado = {}
+    while time.time() - inicio &lt; ESPERA_INDEXACION_SEGUNDOS:
+        try:
+            estado = get_search(f"knowledgesources/{KNOWLEDGE_SOURCE}/status")
+        except requests.HTTPError as e:
+            estado = {"error": str(e)}
+        sync = estado.get("synchronizationStatus") or estado.get("status") or {}
+        resumen = json.dumps(sync if isinstance(sync, dict) else {"status": sync}, ensure_ascii=False)[:300]
+        print("   ", resumen)
+        texto = json.dumps(estado).lower()
+        if '"success"' in texto or '"active"' in texto or '"completed"' in texto:
+            break
+        time.sleep(15)
+
+    print("6) Consulta de prueba a la base de conocimiento...")
+    r = requests.post(
+        f"{SEARCH_ENDPOINT}/knowledgebases/{KNOWLEDGE_BASE}/retrieve?api-version={SEARCH_API_VERSION}",
+        headers=search_headers(),
+        json={"messages": [{"role": "user", "content": [{"type": "text", "text": "¿Qué recargo se cobra si pago el alquiler con atraso?"}]}]},
+        timeout=120,
+    )
+    print("   HTTP", r.status_code)
+    if r.ok:
+        data = r.json()
+        for item in data.get("response", [])[:1]:
+            for c in item.get("content", [])[:1]:
+                print("   respuesta:", (c.get("text") or "")[:1200])
+        print("   referencias:", len(data.get("references", [])), "| actividad:", [a.get("type") for a in data.get("activity", [])])
+    else:
+        print("   ", r.text[:800])
+
+
+if __name__ == "__main__":
+    main()
+</code></pre>
+        </div>
+      </div>
+      
+      <div class="rescard code">
+        <button class="reshead" type="button" aria-expanded="false">
+          <span class="ic">&#128013;</span>
+          <span class="bd"><b>memoria/crear_memory_store.py</b><span>Python · crea el memory store con user_profile_details</span></span>
+          <span class="chev">Ver código</span>
+        </button>
+        <div class="resbody">
+          <div class="codetop"><span class="lang">python</span><button class="copy" type="button">Copiar</button></div>
+          <pre><code>"""
+Crea (o verifica) el memory store de Foundry para el agente inmobiliario de Alpha State.
+
+Memoria de Foundry (preview) guarda hechos estables de cada cliente entre
+conversaciones: nombre, forma de contacto, qué busca (operación, barrio,
+presupuesto, dormitorios, mascotas) y la propiedad que le interesó. El agente
+la usa mediante `FoundryMemoryProvider` (Agent Framework) con `scope`
+por usuario, así cada cliente tiene su memoria aislada.
+
+Idempotente: si el store ya existe, lo deja como está.
+
+Requisitos: `az login`; rol Foundry User + Cognitive Services OpenAI User en el
+recurso de Foundry (tanto para tu usuario como para la identidad del agente
+hospedado). Modelos desplegados: gpt-5-mini (chat) y text-embedding-3-small.
+
+Ejecutar desde src/agent-framework-agent-inmobiliaria/:
+    .venv/bin/python memoria/crear_memory_store.py
+"""
+
+import os
+
+import yaml
+from azure.ai.projects import AIProjectClient
+from azure.ai.projects.models import MemoryStoreDefaultDefinition, MemoryStoreDefaultOptions
+from azure.core.exceptions import ResourceNotFoundError
+from azure.identity import DefaultAzureCredential
+from dotenv import load_dotenv
+
+load_dotenv()
+
+FOUNDRY_PROJECT_ENDPOINT = os.environ["FOUNDRY_PROJECT_ENDPOINT"]
+
+RUTA_MODEL_CONFIG = os.path.join(os.path.dirname(__file__), "..", "model_config", "model_config.yaml")
+
+
+def main() -&gt; None:
+    with open(RUTA_MODEL_CONFIG, encoding="utf-8") as f:
+        cfg = yaml.safe_load(f)["memory"]
+    nombre = os.getenv("MEMORY_STORE_NAME") or cfg["store_name"]
+
+    with DefaultAzureCredential() as credential, AIProjectClient(
+        endpoint=FOUNDRY_PROJECT_ENDPOINT, credential=credential, allow_preview=True
+    ) as project:
+        try:
+            existente = project.beta.memory_stores.get(name=nombre)
+            print(f"El memory store '{existente.name}' ya existe (id={existente.id}); no se modifica.")
+            return
+        except ResourceNotFoundError:
+            pass
+
+        definicion = MemoryStoreDefaultDefinition(
+            chat_model=cfg["chat_model"],
+            embedding_model=cfg["embedding_model"],
+            options=MemoryStoreDefaultOptions(
+                user_profile_enabled=True,
+                chat_summary_enabled=bool(cfg.get("chat_summary_enabled", True)),
+                user_profile_details=cfg["user_profile_details"],
+            ),
+        )
+        creado = project.beta.memory_stores.create(
+            name=nombre,
+            description=cfg.get("description", "Memoria de clientes del agente inmobiliario de Alpha State"),
+            definition=definicion,
+        )
+        print(f"Memory store '{creado.name}' creado (id={creado.id}).")
+
+
+if __name__ == "__main__":
+    main()
+</code></pre>
+        </div>
+      </div>
+      
+      <div class="rescard code">
+        <button class="reshead" type="button" aria-expanded="false">
+          <span class="ic">&#9881;</span>
+          <span class="bd"><b>comandos.sh</b><span>Bash · los comandos azd usados en el proyecto</span></span>
+          <span class="chev">Ver código</span>
+        </button>
+        <div class="resbody">
+          <div class="codetop"><span class="lang">bash</span><button class="copy" type="button">Copiar</button></div>
+          <pre><code># Desde la carpeta del proyecto (agente-hosted/agente-hosted-inmobiliaria)
+export AZURE_DEV_USER_AGENT=microsoft_foundry_skill
+azd config set auth.useAzCliAuth true          # azd reutiliza la sesión de az login
+
+# Variables que viajan al contenedor (declaradas en azure.yaml → services.&lt;svc&gt;.env)
+azd env set GOOGLE_SHEETS_ID "&lt;id-de-la-hoja&gt;"
+azd env set GOOGLE_SERVICE_ACCOUNT_JSON "$(cat cuenta-servicio.json)"
+
+# Pruebas
+src/agent-framework-agent-inmobiliaria/.venv/bin/python src/agent-framework-agent-inmobiliaria/tests/test_catalogo.py
+src/agent-framework-agent-inmobiliaria/.venv/bin/python src/agent-framework-agent-inmobiliaria/tests/test_base_conocimiento.py
+azd ai agent run --no-client                     # servidor local en :8088
+azd ai agent invoke --local --new-conversation --new-session --user-identity cliente-mariana "Hola, busco kitnet en Barão Geraldo hasta 1500 reales"
+
+# Despliegue y verificación
+azd deploy --no-prompt                           # nueva versión (~1 min)
+azd ai agent show                                # estado, versión y URL del playground
+azd ai agent invoke --new-conversation --new-session "¿Qué multa hay por pagar con atraso?"
+</code></pre>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <b>Cómo ejecutarlo</b>
+      <p>Python 3.13, venv en <code>src/&lt;servicio&gt;/</code> e instalación con <code>uv pip install -r requirements.txt</code>. Rellena <code>.env</code> con el endpoint del proyecto, el modelo y las credenciales de la hoja. Para tu propio caso cambia la sección <code>agent</code> y el mapeo <code>columnas</code> de <code>model_config.yaml</code> (temas 04 y 06) y vuelve a correr los scripts de RAG y memoria (temas 07 y 09).</p>
+    </div>
+  </section>
+
+  <section id="s-quiz" data-grp="Cierre" data-nav="Cuestionario final">
+    <p class="eyebrow">14 · Autoevaluación</p>
+    <h3>Cuestionario final</h3>
+    <p class="lead">Seis preguntas de criterio sobre la arquitectura. Cada respuesta se explica al momento.</p>
+    <div class="quiz">
+      <div class="qtop">
+        <div class="idx" id="q-idx">Pregunta 1<small>de 6</small></div>
+        <div class="pips" id="q-pips"></div>
+        <span class="score" id="q-score">0 correctas</span>
+      </div>
+      <div class="qbody" id="q-body"></div>
+      <div class="qfoot" id="q-foot"></div>
+    </div>
+    <div class="note" style="margin-top:30px">
+      <b>Para llevarte a casa</b>
+      <p>Foundry hospeda el contenedor y le entrega identidad e historial; el modelo decide cuándo llamar a una tool; cada tool responde con datos o con un "no lo sé" explícito; y la memoria guarda al cliente por ámbito para la próxima vez. Todo lo que el agente afirma sale de una fuente que puedes señalar.</p>
+    </div>
+    <div class="foot">
+      <span>Datapath · Agentes con Azure AI Foundry</span>
+      <span>Caso práctico · Arquitectura del agente inmobiliario Alpha State</span>
+    </div>
+  </section>
+
+  </div>
+</main>
+</div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var secs=[].slice.call(document.querySelectorAll("section"));
+
+  /* temario */
+  var last="",html="";
+  secs.forEach(function(s,i){
+    if(s.dataset.grp!==last){last=s.dataset.grp;html+='<div class="grp">'+last+'</div>';}
+    html+='<a href="#'+s.id+'" data-t="'+s.id+'"><span class="n">'+String(i+1).padStart(2,"0")+'</span><span>'+s.dataset.nav+'</span></a>';
+  });
+  $("toc").innerHTML=html;
+  var links=[].slice.call($("toc").querySelectorAll("a"));
+  links.forEach(function(a){a.addEventListener("click",function(){document.body.classList.remove("open");});});
+  $("menu").addEventListener("click",function(){document.body.classList.toggle("open");});
+  $("go").addEventListener("click",function(){$("s-quiz").scrollIntoView({behavior:"smooth"});});
+
+  /* seguimiento de lectura */
+  if(typeof IntersectionObserver!=="undefined"){
+    var io=new IntersectionObserver(function(es){
+      es.forEach(function(e){
+        if(!e.isIntersecting)return;
+        links.forEach(function(a){a.classList.toggle("on",a.dataset.t===e.target.id);});
+        var i=secs.indexOf(e.target);
+        $("where").textContent=e.target.dataset.grp+" — "+e.target.dataset.nav;
+        $("rule").style.width=Math.round((i+1)/secs.length*100)+"%";
+      });
+    },{rootMargin:"-12% 0px -72% 0px",threshold:0});
+    secs.forEach(function(s){io.observe(s);});
+  }
+
+  /* cuestionario */
+  /* === BANCO DE PREGUNTAS · sustituir por las 6 de esta sesión === */
+  var Q=[
+   {tag:"Arquitectura",
+    q:"La inmobiliaria guarda su catálogo en una hoja privada con cabeceras propias. ¿Por qué el agente se construyó como hosted agent y no como prompt agent?",
+    o:["Porque los prompt agents no aceptan instrucciones en español","Porque leer esa hoja y mapear sus columnas exige código propio que solo un contenedor ejecuta","Porque el hosted agent es más barato de operar","Porque el playground solo funciona con agentes hospedados"],
+    ok:1,
+    why:"El prompt agent solo usa tools declaradas en el catálogo de Foundry. Una integración a medida, con credenciales de Google y normalización de columnas, necesita código, y eso es exactamente lo que el hosted agent hospeda. El costo y el idioma no dependen del tipo de agente."},
+   {tag:"Tools",
+    q:"Un cliente pide un departamento que acepte mascotas y la hoja no tiene ninguna columna sobre mascotas. ¿Qué debe ocurrir?",
+    o:["La tool ignora el filtro y el agente presenta las opciones como aptas para mascotas","La tool devuelve un aviso y el agente dice que el catálogo no lo registra y que el asesor lo confirmará","La tool busca la palabra mascotas en la descripción de cada fila","El agente responde que no hay propiedades disponibles"],
+    ok:1,
+    why:"La tool no puede filtrar por un dato que no existe, pero sí puede avisarlo. Con ese aviso el prompt obliga al agente a decir la verdad y derivar. La primera opción es lo que hacía el modelo antes de la regla: afirmar algo sin fuente."},
+   {tag:"Base de conocimiento",
+    q:"Eres Owner de la suscripción y al consultar la knowledge base con retrieve recibes 403. ¿Cuál es la causa más probable?",
+    o:["El PDF aún no terminó de indexarse","El nivel Free no permite consultas","Falta el rol Search Index Data Reader en el servicio de búsqueda","La knowledge base necesita un modelo GPT-4"],
+    ok:2,
+    why:"Owner controla el recurso, pero no otorga acceso a los datos de los índices. Ese acceso es un rol aparte y tarda minutos en propagar. La indexación pendiente daría cero resultados, no un 403."},
+   {tag:"Memoria",
+    q:"Invocas al agente dos veces con --new-session y en la segunda recuerda el nombre del cliente. ¿Demuestra que la memoria de Foundry funciona?",
+    o:["Sí, cada sesión nueva parte sin historial","No: --new-session reutiliza la conversación guardada, así que recuerda por historial","Sí, siempre que hayan pasado más de 60 segundos","No, porque la memoria solo funciona en el playground"],
+    ok:1,
+    why:"azd guarda la conversación y la reutiliza aunque cambie la sesión. La prueba válida usa --new-conversation --new-session y espera más de update_delay para que Foundry consolide los recuerdos."},
+   {tag:"Ámbito",
+    q:"En Compilación → Memoria la pestaña Memorias dice 'Aún no hay memorias' aunque el agente recuerda a los clientes. ¿Qué pasa?",
+    o:["El memory store se creó sin embeddings","El filtro Ámbito trae el marcador {{$userId}} y hay que escribir el ámbito real del cliente","Las memorias tardan 24 horas en aparecer","El portal solo muestra memorias de prompt agents"],
+    ok:1,
+    why:"Los recuerdos se guardan por ámbito y el portal lista solo el ámbito exacto que escribas. El marcador es un texto literal. Por eso el agente resuelve el ámbito con un valor conocido: el id del usuario o un valor por defecto."},
+   {tag:"Configuración",
+    q:"La inmobiliaria cambia de nombre y de ciudad. ¿Dónde se hace el cambio?",
+    o:["En la sección agent de model_config.yaml; el prompt lo toma por placeholders","Buscando y reemplazando el nombre en system_prompt.yaml","En agente.py, donde se construye el Agent","En azure.yaml, en la descripción del servicio"],
+    ok:0,
+    why:"El prompt solo tiene instrucciones y placeholders; la identidad vive en model_config.yaml. Cambiar allí evita tocar código o texto y garantiza que el nombre sea el mismo en todas las secciones del prompt."}
+  ];
+  var L=["A","B","C","D"],i=0,ok=0,marks=[],locked=false;
+  var body=$("q-body"),foot=$("q-foot"),idx=$("q-idx"),score=$("q-score"),pips=$("q-pips");
+  function drawPips(){
+    var h="";
+    for(var k=0;k<Q.length;k++){
+      var c=marks[k]===1?"ok":(marks[k]===0?"no":(k===i?"now":""));
+      h+='<i class="'+c+'"></i>';
+    }
+    pips.innerHTML=h;
+  }
+  function paint(){
+    locked=false;var it=Q[i];
+    idx.innerHTML="Pregunta "+(i+1)+"<small>de "+Q.length+"</small>";
+    score.textContent=ok+" correctas";
+    drawPips();
+    body.innerHTML='<p class="qtag">'+it.tag+'</p><p class="qq">'+it.q+'</p><div class="opts" id="opts">'+
+      it.o.map(function(o,k){return '<button class="opt" data-k="'+k+'"><span class="k">'+L[k]+'</span><span>'+o+'</span></button>';}).join("")+
+      '</div><div class="fb" id="fb"></div>';
+    foot.innerHTML='<span class="hint">Elige una opción para ver la explicación</span>';
+    [].slice.call(document.querySelectorAll("#opts .opt")).forEach(function(b){
+      b.addEventListener("click",function(){answer(+b.dataset.k);});
+    });
+  }
+  function answer(k){
+    if(locked)return;locked=true;
+    var it=Q[i],good=k===it.ok;
+    marks[i]=good?1:0;
+    if(good)ok++;else it.mine=it.o[k];
+    [].slice.call(document.querySelectorAll("#opts .opt")).forEach(function(b,n){
+      b.disabled=true;
+      b.classList.add(n===it.ok?"right":(n===k?"wrong":"off"));
+    });
+    var fb=$("fb");
+    fb.className="fb show "+(good?"y":"n");
+    fb.innerHTML="<b>"+(good?"Correcto":"Revisa esto")+"</b>"+it.why;
+    score.textContent=ok+" correctas";
+    drawPips();
+    foot.innerHTML='<span class="hint">'+(i+1)+" de "+Q.length+'</span><button class="btn" id="next">'+(i===Q.length-1?"Ver resultado":"Siguiente pregunta")+'</button>';
+    $("next").addEventListener("click",function(){
+      if(i===Q.length-1)result();else{i++;paint();}
+    });
+  }
+  function result(){
+    var p=Math.round(ok/Q.length*100),msg;
+    if(p>=84)msg="Tienes clara la arquitectura: hosting, tools con fuente de verdad, memoria por ámbito y roles. Estás listo para adaptarla a otro negocio.";
+    else if(p>=60)msg="Buena base. Vuelve a los temas de las preguntas que fallaste antes de repetir el cuestionario.";
+    else msg="Conviene repasar. Revisa otra vez los temas 05, 08, 10 y 11: sostienen el resto de la arquitectura.";
+    idx.innerHTML="Resultado<small>cuestionario completo</small>";
+    var wrong=Q.filter(function(it,k){return marks[k]===0;});
+    body.innerHTML='<div class="result"><div class="big">'+ok+'</div><div class="of">de '+Q.length+' · '+p+'% correcto</div>'+
+      '<div class="msg">'+msg+'</div>'+
+      (wrong.length?'<div class="review"><p class="qtag">Para repasar</p>'+wrong.map(function(w){
+        return '<div class="item"><b>'+w.q+'</b><span class="bad">Tu respuesta: '+(w.mine||"")+'</span><br><span class="good">Correcta: '+w.o[w.ok]+'</span></div>';
+      }).join("")+'</div>':"")+'</div>';
+    foot.innerHTML='<span class="hint">'+Q.length+' de '+Q.length+'</span><button class="btn" id="again">Repetir</button><button class="btn ghost" id="top">Volver al inicio</button>';
+    $("again").addEventListener("click",function(){i=0;ok=0;marks=[];Q.forEach(function(x){delete x.mine;});paint();});
+    $("top").addEventListener("click",function(){$("s1").scrollIntoView({behavior:"smooth"});});
+  }
+  paint();
+})();
+</script>
+
+<script>
+(function(){
+  /* --- animación de figuras al entrar en pantalla --- */
+  var figs=[].slice.call(document.querySelectorAll("figure"));
+  figs.forEach(function(f){
+    [].slice.call(f.querySelectorAll(".rise")).forEach(function(el,k){
+      el.style.transitionDelay=Math.min(k,16)*45+"ms";
+    });
+  });
+  if(typeof IntersectionObserver!=="undefined"){
+    var fio=new IntersectionObserver(function(es){
+      es.forEach(function(e){
+        if(e.isIntersecting){e.target.classList.add("in");fio.unobserve(e.target);}
+      });
+    },{rootMargin:"0px 0px -10% 0px",threshold:.15});
+    figs.forEach(function(f){fio.observe(f);});
+    setTimeout(function(){
+      if(!document.querySelector("figure.in"))figs.forEach(function(f){f.classList.add("in");});
+    },2500);
+  }else figs.forEach(function(f){f.classList.add("in");});
+
+
+  /* --- recursos: desplegar scripts y copiarlos --- */
+  [].slice.call(document.querySelectorAll(".rescard.code")).forEach(function(card){
+    var head=card.querySelector(".reshead"),chev=card.querySelector(".chev"),
+        copy=card.querySelector(".copy"),code=card.querySelector("code");
+    head.addEventListener("click",function(){
+      var open=card.classList.toggle("open");
+      head.setAttribute("aria-expanded",String(open));
+      chev.textContent=open?"Ocultar":"Ver código";
+    });
+    copy.addEventListener("click",function(e){
+      e.stopPropagation();
+      var txt=code.textContent;
+      function done(){
+        copy.textContent="Copiado";copy.classList.add("ok");
+        setTimeout(function(){copy.textContent="Copiar";copy.classList.remove("ok");},1800);
+      }
+      function fallback(){
+        var ta=document.createElement("textarea");
+        ta.value=txt;ta.setAttribute("readonly","");
+        ta.style.position="fixed";ta.style.top="-1000px";ta.style.opacity="0";
+        document.body.appendChild(ta);ta.select();
+        try{document.execCommand("copy");done();}catch(err){copy.textContent="Copia manual";}
+        document.body.removeChild(ta);
+      }
+      if(navigator.clipboard&&navigator.clipboard.writeText)
+        navigator.clipboard.writeText(txt).then(done,fallback);
+      else fallback();
+    });
+  });
+
+  /* --- tarjetas que avanzan y controlan el gráfico --- */
+  [].slice.call(document.querySelectorAll(".deck")).forEach(function(deck){
+    var cards=[].slice.call(deck.querySelectorAll(".card"));
+    if(!cards.length)return;
+    var fig=deck.closest("figure");
+    var groups=fig?[].slice.call(fig.querySelectorAll("[data-s]")):[];
+    var dots=deck.querySelector(".dots");
+    var prev=deck.querySelector(".prev");
+    var next=deck.querySelector(".next");
+    var i=0;
+    dots.innerHTML=cards.map(function(c,k){
+      return '<button type="button" data-k="'+k+'" aria-label="Paso '+(k+1)+'"></button>';
+    }).join("");
+    var pips=[].slice.call(dots.querySelectorAll("button"));
+    function show(k){
+      i=k;
+      cards.forEach(function(c,n){c.classList.toggle("on",n===k);});
+      pips.forEach(function(b,n){b.classList.toggle("on",n===k);b.classList.toggle("done",n<k);});
+      groups.forEach(function(g){
+        var s=+g.dataset.s;
+        g.classList.toggle("on",s<=k);
+        g.classList.toggle("now",s===k);
+      });
+      prev.disabled=(k===0);
+      next.disabled=(k===cards.length-1);
+      next.textContent=(k===cards.length-1)?"Fin":"Siguiente";
+    }
+    pips.forEach(function(b){b.addEventListener("click",function(){show(+b.dataset.k);});});
+    prev.addEventListener("click",function(){if(i>0)show(i-1);});
+    next.addEventListener("click",function(){if(i<cards.length-1)show(i+1);});
+    show(0);
+  });
+})();
+</script>
+</body>
+</html>

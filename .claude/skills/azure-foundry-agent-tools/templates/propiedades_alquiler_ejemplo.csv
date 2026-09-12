@@ -1,0 +1,13 @@
+id,titulo,tipo,distrito,direccion,dormitorios,banos,area_m2,precio,moneda,amoblado,mascotas,estacionamiento,estado,descripcion,link
+AS-001,Departamento con vista al parque,departamento,Miraflores,Av. Pardo 500,2,2,85,2400,PEN,no,si,1,disponible,Piso 6 con balcón y vista al parque Kennedy. Edificio con ascensor y área de lavandería.,https://alphastate.example/AS-001
+AS-002,Departamento amoblado cerca al malecón,departamento,Miraflores,Malecón Cisneros 1200,1,1,55,2900,PEN,si,no,1,disponible,Totalmente amoblado y equipado. Ideal para ejecutivos.,https://alphastate.example/AS-002
+AS-003,Departamento familiar,departamento,San Isidro,Calle Los Libertadores 340,3,2,120,3800,PEN,no,si,2,disponible,Tres dormitorios y sala amplia. A dos cuadras del Golf.,https://alphastate.example/AS-003
+AS-004,Casa con jardín,casa,Surco,Av. Primavera 2100,4,3,220,5500,PEN,no,si,2,disponible,Casa de dos pisos con jardín y terraza. Zona tranquila.,https://alphastate.example/AS-004
+AS-005,Departamento económico,departamento,Jesús María,Av. Salaverry 1800,2,1,70,1900,PEN,no,no,0,disponible,Buena iluminación y cerca al Campo de Marte.,https://alphastate.example/AS-005
+AS-006,Loft en Barranco,departamento,Barranco,Av. Grau 400,1,1,48,2300,PEN,si,si,0,disponible,Loft amoblado en zona bohemia. Pet friendly.,https://alphastate.example/AS-006
+AS-007,Departamento en La Molina,departamento,La Molina,Av. La Fontana 900,3,2,110,3200,PEN,no,si,1,disponible,Condominio con piscina y áreas verdes.,https://alphastate.example/AS-007
+AS-008,Oficina implementada,oficina,San Isidro,Av. Canaval y Moreyra 500,0,1,60,1200,USD,si,no,1,disponible,Oficina implementada en edificio corporativo.,https://alphastate.example/AS-008
+AS-009,Departamento con terraza,departamento,Magdalena,Av. Brasil 3200,2,2,90,2500,PEN,no,si,1,alquilado,Ya alquilado. No mostrar.,https://alphastate.example/AS-009
+AS-010,Mini departamento,departamento,Miraflores,Calle Schell 300,1,1,40,1800,PEN,no,no,0,disponible,Ideal para una persona. A una cuadra del parque Kennedy.,https://alphastate.example/AS-010
+AS-011,Departamento en San Borja,departamento,San Borja,Av. Aviación 2800,3,2,105,3000,PEN,no,no,1,disponible,Frente al Pentagonito. Edificio con seguridad 24h.,https://alphastate.example/AS-011
+AS-012,Local comercial,local,Miraflores,Av. Larco 800,0,1,75,1500,USD,no,no,0,disponible,Local a pie de calle en avenida comercial.,https://alphastate.example/AS-012
