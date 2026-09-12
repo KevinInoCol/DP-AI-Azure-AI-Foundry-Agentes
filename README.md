@@ -11,7 +11,6 @@ El caso práctico es **Alpha State**, una inmobiliaria de Campinas (Brasil): el 
 | [`agente-hosted/agente-basico/`](agente-hosted/agente-basico/) | Agente hospedado mínimo (plantilla oficial Agent Framework + protocolo Responses). Punto de partida del taller. |
 | [`agente-hosted/agente-hosted-inmobiliaria/`](agente-hosted/agente-hosted-inmobiliaria/) | **Proyecto principal**: asesor inmobiliario *Alpha State*. Tools, RAG, memoria y guardrail. |
 | [`Consumo-de-Agentes/`](Consumo-de-Agentes/) | App que consume el agente desde fuera del portal: backend FastAPI + frontend React/Vite con interfaz de chat. |
-| [`Presentacion/`](Presentacion/) | Presentación HTML autocontenida con la arquitectura del agente (diagramas animados, recorridos paso a paso y cuestionario). |
 | [`.claude/skills/`](.claude/skills/) | Skills de Claude Code que documentan cada pieza del taller. |
 
 ## Capacidades del agente inmobiliario

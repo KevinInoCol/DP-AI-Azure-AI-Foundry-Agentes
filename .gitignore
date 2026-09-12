@@ -24,3 +24,7 @@ __pycache__/
 .DS_Store
 .vscode/
 .idea/
+
+# Presentación: fuera del repositorio por el momento (los archivos siguen en local).
+# Para volver a publicarla, borra estas dos líneas y ejecuta: git add Presentacion
+Presentacion/
