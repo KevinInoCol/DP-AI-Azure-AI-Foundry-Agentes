@@ -28,3 +28,6 @@ __pycache__/
 # Presentación: fuera del repositorio por el momento (los archivos siguen en local).
 # Para volver a publicarla, borra estas dos líneas y ejecuta: git add Presentacion
 Presentacion/
+
+# Skill local, no se versiona
+.claude/skills/ppt-a-html-datapath/

@@ -1,6 +1,6 @@
 ---
-name: azure-mcp-install
-description: Instala el Azure MCP Server (@azure/mcp) de forma global con npm y lo registra en Claude Code con alcance de usuario (--scope user), para que las tools mcp__azure__* estén disponibles en cualquier proyecto y sesión sin timeouts de arranque. Incluye verificación de prerequisitos (Node, npm, Azure CLI, az login), scripts para macOS/Linux y Windows, y solución de problemas. Use when the user asks to "instalar el MCP de Azure", "configurar Azure MCP", "conectar Claude Code con Azure", "no aparecen las tools de Azure", "el MCP de Azure da timeout", "azmcp", or types /azure-mcp-install.
+name: install-azure-mcp
+description: Instala el Azure MCP Server (@azure/mcp) de forma global con npm y lo registra en Claude Code con alcance de usuario (--scope user), para que las tools mcp__azure__* estén disponibles en cualquier proyecto y sesión sin timeouts de arranque. Incluye verificación de prerequisitos (Node, npm, Azure CLI, az login), scripts para macOS/Linux y Windows, y solución de problemas. Use when the user asks to "instalar el MCP de Azure", "configurar Azure MCP", "conectar Claude Code con Azure", "no aparecen las tools de Azure", "el MCP de Azure da timeout", "azmcp", or types /install-azure-mcp.
 ---
 
 # Instalar el Azure MCP Server en Claude Code (global)

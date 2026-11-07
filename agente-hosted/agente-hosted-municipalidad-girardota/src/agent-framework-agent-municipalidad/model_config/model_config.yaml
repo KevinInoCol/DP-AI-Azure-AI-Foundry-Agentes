@@ -1,0 +1,112 @@
+name: municipalidad-girardota-model-config
+version: 1.1.0
+description: >
+  Configuración del asistente virtual de la Alcaldía Municipal de Girardota:
+  identidad, modelo, herramientas y memoria. El system prompt vive aparte en
+  prompt/system_prompt.yaml y solo contiene las instrucciones; los valores de
+  la sección `agent` se inyectan en sus placeholders ({bot_name}, {entidad},
+  {municipio}, {moneda}, {canal_oficial}).
+
+# Identidad que se inyecta en el system prompt.
+agent:
+  bot_name: Girardo
+  entidad: la Alcaldía Municipal de Girardota
+  municipio: Girardota (Antioquia, Colombia)
+  # Cómo debe hablar el agente del dinero (impuestos, tarifas, multas).
+  moneda: pesos colombianos (COP), que se escriben como $
+  # A dónde deriva cuando no puede resolver: se actualiza con los datos reales de la alcaldía.
+  canal_oficial: la ventanilla de atención al ciudadano de la Alcaldía de Girardota
+  description: Asistente virtual de trámites y servicios de la Alcaldía Municipal de Girardota
+
+# Modelo desplegado en el proyecto de Foundry.
+model:
+  # La variable de entorno AZURE_AI_MODEL_DEPLOYMENT_NAME (que azd fija en el
+  # despliegue) tiene prioridad sobre este valor por defecto.
+  deployment_name: gpt-5.4-mini
+  # Opciones que se pasan en cada llamada (ChatOptions de Agent Framework).
+  options:
+    # El historial lo gestiona el host de Foundry / la AgentSession en memoria.
+    store: false
+    # gpt-5.x no admite temperature/top_p; si cambias a gpt-4o-mini puedes añadir:
+    # temperature: 0.2
+    # max_tokens: 800
+
+# Herramientas (function calling). El nombre de cada clave es el nombre EXACTO
+# de la tool que ve el modelo y que se cita en el system prompt.
+tools:
+  consultar_tramites_girardota:
+    # Activa desde el 2026-09-12: base de conocimiento `girardota-kb` creada con
+    # rag/crear_base_conocimiento.py a partir del "MANUAL DE TRÁMITES - Municipio
+    # de Girardota.pdf" (147 fragmentos indexados).
+    # Si se pone en false, agente.py registra la versión "pendiente" de la tool,
+    # que devuelve un error controlado en vez de dejar al modelo sin herramienta.
+    enabled: true
+    # Knowledge base de Foundry IQ (Azure AI Search) que crea rag/crear_base_conocimiento.py.
+    # El servicio de búsqueda se comparte con el agente inmobiliario: el nivel Free
+    # solo permite UN servicio por suscripción (y admite 3 índices, de los que se usa 1).
+    # Si la alcaldía necesita su propio servicio, crea uno Basic y cambia este endpoint.
+    search_endpoint: https://srch-alphastate-datapath.search.windows.net
+    knowledge_base: girardota-kb
+    api_version: 2026-08-01-preview
+    # Fragmentos máximos que se devuelven al modelo y tamaño máximo de la respuesta de retrieve.
+    max_fragmentos: 5
+    max_output_size_tokens: 8000   # el servicio exige más de 5000
+
+# Memoria de Foundry (preview): hechos estables de cada ciudadano entre conversaciones.
+# El store se crea una vez con memoria/crear_memory_store.py; el agente lo usa vía
+# FoundryMemoryProvider. La variable de entorno MEMORY_STORE_NAME tiene prioridad.
+#
+# ATENCIÓN (datos personales): la memoria de una entidad pública es el punto donde
+# más fácil se persisten datos sensibles. `user_profile_details` está redactado en
+# modo minimización: nombre de pila y contexto del trámite, nunca identificadores.
+# La definición del store NO se puede actualizar (hay que borrar y recrear), así que
+# cualquier cambio aquí exige recrear el store.
+memory:
+  enabled: true
+  store_name: municipalidad_girardota_memory
+  description: Memoria de ciudadanos atendidos por el asistente virtual de la Alcaldía de Girardota (solo datos mínimos, sin identificadores).
+  # Modelos que Foundry usa para extraer e indexar recuerdos.
+  chat_model: gpt-5-mini
+  embedding_model: text-embedding-3-small
+  chat_summary_enabled: true
+  # Qué debe recordar (y sobre todo qué NO) del ciudadano.
+  user_profile_details: >
+    Recuerda únicamente: el nombre de pila con el que el ciudadano quiere que lo
+    llamen; el barrio, vereda o corregimiento de Girardota que menciona (nunca la
+    dirección exacta); el trámite o servicio municipal por el que consultó y en qué
+    estado quedó (por ejemplo "preguntó por el descuento del impuesto predial" o
+    "radicó una PQRSD por alumbrado público"); el canal y la franja horaria en que
+    prefiere que lo contacten (por ejemplo "prefiere WhatsApp por la tarde", sin el
+    número); y sus preferencias de trato (tuteo o usted, lenguaje sencillo,
+    necesidad de accesibilidad).
+    NO guardes NUNCA, ni completos ni parciales ni transformados: número de cédula
+    de ciudadanía, tarjeta de identidad, cédula de extranjería, pasaporte, NIT o
+    cualquier documento de identidad; número de teléfono o correo electrónico;
+    dirección exacta de vivienda; número de factura, recibo, comparendo, radicado,
+    predio o matrícula inmobiliaria; datos bancarios, de tarjetas o de pagos;
+    información de salud, discapacidad, situación económica, condición de
+    vulnerabilidad, pertenencia étnica, afiliación política o religiosa, ni datos de
+    menores de edad; ni citas textuales de mensajes que contengan esos datos.
+    Si el ciudadano los menciona, ignóralos por completo al construir el recuerdo.
+    Redacta cada recuerdo en español, en tercera persona y en una frase corta.
+  # Ámbito (scope) de los recuerdos = identificador del ciudadano. Lo resuelve
+  # memoria/proveedor.py en cada petición: en local MEMORY_SCOPE (chat_local.py);
+  # en Foundry la cabecera x-agent-user-id (usuario del playground, o
+  # `azd ai agent invoke --user-identity <id>`, o el id que envíe tu canal);
+  # si no llega ninguna, este valor por defecto. Es el texto que se escribe en el
+  # filtro "Ámbito" de Compilación → Memoria para ver los recuerdos.
+  scope_por_defecto: ciudadano-sin-identificar
+  # Segundos de inactividad antes de consolidar la memoria (0 = inmediato).
+  update_delay: 60
+  context_prompt: |
+    ## Lo que recuerdas de este ciudadano
+    Datos de conversaciones anteriores con esta misma persona. Úsalos como
+    conocimiento propio, sin citarlos ni mencionar que los recuerdas de otra
+    charla salvo que el ciudadano lo pregunte:
+
+# Guardrail (política RAI) aplicado al agente. Se declara en azure.yaml (policies)
+# y se versiona en guardrails/munipalidad-girardota-guardrail.json. Aquí solo se
+# documenta para que quede junto al resto de la configuración.
+guardrail:
+  nombre: munipalidad-girardota-guardrail
+  definicion: guardrails/munipalidad-girardota-guardrail.json

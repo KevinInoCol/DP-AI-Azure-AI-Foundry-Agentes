@@ -1,0 +1,9 @@
+# Lo que NO debe viajar al contenedor del agente.
+.env.example
+.env
+.venv
+__pycache__
+rag
+tests
+guardrails
+*.json

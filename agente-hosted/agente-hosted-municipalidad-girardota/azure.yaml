@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+    azd: '>=1.27.1'
+    extensions:
+        azure.ai.agents: '>=1.0.0-beta.9'
+name: agente-hosted-municipalidad-girardota
+services:
+    agent-framework-agent-municipalidad:
+        project: src/agent-framework-agent-municipalidad
+        host: azure.ai.agent
+        language: python
+        uses:
+            - ai-project
+        env:
+            AZURE_AI_MODEL_DEPLOYMENT_NAME: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+            MEMORY_STORE_NAME: municipalidad_girardota_memory
+        codeConfiguration:
+            dependencyResolution: remote_build
+            entryPoint: main.py
+            runtime: python_3_13
+        container:
+            resources:
+                cpu: "0.5"
+                memory: 1Gi
+        description: Asistente virtual de la Alcaldia Municipal de Girardota (Antioquia, Colombia) construido con Microsoft Agent Framework sobre el protocolo Responses. Orienta a la ciudadania sobre tramites y servicios municipales (predial, industria y comercio, certificados, licencias, SISBEN, PQRSD) consultando la base de conocimiento oficial, y recuerda a cada ciudadano con Memoria de Foundry minimizando datos personales. Nunca inventa requisitos, plazos ni montos.
+        kind: hosted
+        # Guardrail DESACTIVADO por el momento (2026-09-11).
+        # La politica munipalidad-girardota-guardrail existe en el recurso de Foundry y su
+        # definicion esta versionada en src/.../guardrails/, pero NO se aplica al agente:
+        # medido sobre la version 1 desplegada, los filtros de entrada Jailbreak e Indirect
+        # Attack bloqueaban de forma intermitente (~40%) consultas ciudadanas legitimas
+        # ("quiero poner una queja por el alumbrado", "hasta cuando pago el predial con
+        # descuento"), devolviendo 400 content_filter en vez de una respuesta.
+        # Sin esta seccion el agente hereda el guardrail del despliegue del modelo
+        # (Microsoft.DefaultV2). La proteccion de datos personales sigue activa en el prompt
+        # (<Proteccion_De_Datos_Personales>) y en la memoria (memory.user_profile_details).
+        # Para volver a aplicarlo, descomenta:
+        # policies:
+        #     - type: rai_policy
+        #       raiPolicyName: /subscriptions/57ff11aa-f7e9-4f80-a643-565666f00aed/resourceGroups/rg-kevin.inofuente-7619/providers/Microsoft.CognitiveServices/accounts/datapath-inofuente-resource/raiPolicies/munipalidad-girardota-guardrail
+        metadata:
+            tags:
+                - Agent Framework
+                - AI Agent Hosting
+                - Azure AI AgentServer
+                - Responses Protocol
+                - Streaming
+                - Gobierno
+                - Municipalidad
+                - Foundry IQ
+                - RAG
+                - Foundry Memory
+                - Guardrails
+                - PII
+        name: agente-hosted-municipalidad-girardota
+        protocols:
+            - protocol: responses
+              version: 2.0.0
+    ai-project:
+        host: azure.ai.project
+        # Comparte el despliegue gpt-5.4-mini con los otros agentes del taller:
+        # `azd down` aqui lo eliminaria tambien para ellos.
+        deployments:
+            - model:
+                format: OpenAI
+                name: gpt-5.4-mini
+                version: "2026-03-17"
+              name: gpt-5.4-mini
+              sku:
+                capacity: 50
+                name: DataZoneStandard
+        endpoint: https://datapath-inofuente-resource.services.ai.azure.com/api/projects/datapath-inofuente
+infra:
+    provider: microsoft.foundry
