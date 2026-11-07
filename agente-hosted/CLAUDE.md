@@ -37,24 +37,12 @@ Hecho:
 
 ### PENDIENTE
 
-- [ ] **Roles RBAC** (el modo auto de Claude Code bloqueó `az role assignment create`; ejecutarlo el usuario). Sin esto el agente responde "no puedo consultar la información oficial" (RAG falla) y la memoria puede fallar:
-  ```bash
-  ACC_ID=$(az cognitiveservices account show -n Datapath-AI-Engineer-KAIC -g Datapath-ai-engineer-ka-ic --query id -o tsv)
-  SEARCH_ID=$(az search service show -n srch-alphastate-datapath -g rg-kevin.inofuente-7619 --query id -o tsv)
-  for P in 99051aba-d814-4d93-9687-40b8f51778a6 6fa0b5d6-accb-4f5d-a425-a53309fbed60; do
-    for R in "Foundry User" "Cognitive Services OpenAI User"; do
-      az role assignment create --assignee-object-id $P --assignee-principal-type ServicePrincipal --role "$R" --scope $ACC_ID -o none
-    done
-    az role assignment create --assignee-object-id $P --assignee-principal-type ServicePrincipal --role "Search Index Data Reader" --scope $SEARCH_ID -o none
-  done
-  ```
-  Esperar 5–10 min y verificar:
-  `azd ai agent invoke agent-framework-agent-municipalidad "¿Cómo pago el impuesto predial en Girardota?"` → debe listar bancos (Bancolombia, Banco Agrario…).
-- [ ] **Base de conocimiento en KAIC**: `girardota-kb` y su conexión se habían creado contra `datapath-inofuente` (constantes viejas del script). `rag/crear_base_conocimiento.py` ya apunta a KAIC (RG por recurso, chat `gpt-5.4-mini`, `verificar_destino()`); falta ejecutarlo para crear la conexión `CognitiveSearch` en `proj-ai-engineer-foundry` y repuntar el modelo de la KB:
-  `cd src/agent-framework-agent-municipalidad && .venv/bin/python rag/crear_base_conocimiento.py`
+- [x] **Roles RBAC** (2026-11-06, ejecutado por el usuario: el modo auto bloquea `az role assignment create`): Foundry User + Cognitive Services OpenAI User en KAIC y Search Index Data Reader en `srch-alphastate-datapath` para el agente (`99051aba…`) y el proyecto KAIC (`6fa0b5d6…`). Verificado: `azd ai agent invoke … "¿Cómo pago el impuesto predial en Girardota?"` responde con Bancolombia, Banco Agrario, Banco de Bogotá, CFA y Cotrafa.
+- [x] **Base de conocimiento en KAIC** (2026-11-06): `girardota-kb` ahora usa la fuente nueva `girardota-tramites-kaic-ks` (147 fragmentos, embeddings de KAIC; el embedding de una fuente es inmutable, por eso no se pudo actualizar la anterior), modelo `gpt-5.4-mini` de KAIC y conexión `CognitiveSearch` `srch-alphastate-datapath` en `proj-ai-engineer-foundry`.
+- [x] (Limpieza, 2026-11-06) Borrada la fuente huérfana `girardota-tramites-ks` y sus objetos generados; el AI Search Free vuelve a 2/3 índices.
 - `guardrails/crear_guardrail.sh` repuntado a KAIC (2026-11-06; la política aún no existe en KAIC y sigue desactivada).
 - Antes de cualquier deploy o script auxiliar: `bash ~/.claude/skills/azure-foundry-hosted-agent-deploy/scripts/verificar_destino.sh Datapath-AI-Engineer-KAIC proj-ai-engineer-foundry`.
-- [ ] Repuntar la app `Consumo-de-Agentes/Agente-de-Municipalidad-Girardota` (backend `.env`) al endpoint de KAIC.
+- [x] App `Consumo-de-Agentes/Agente-de-Municipalidad-Girardota`: `Backend/.env` → `FOUNDRY_PROJECT_ENDPOINT` de KAIC (2026-11-06). Verificado con `call_ai_azure_agent.py` (conversations + responses 200, agente v1). El backend no tiene `.venv` propio: crearlo con `requirements.txt` antes de `uvicorn main:app --port 8001`.
 - [ ] Commit de los cambios (`azure.yaml`, `memoria/crear_memory_store.py`, este archivo).
 - [ ] (Opcional) Actualizar azd a ≥1.37 para extensiones 1.0.0 estables: `brew trust azure/azd && brew uninstall azd && brew install --cask azure/azd/azd`. Con azd 1.33 funcionan las betas (`azure.ai.agents` 1.0.0-beta.17) aunque `azd extension list` diga "Incompatible".
 

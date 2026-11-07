@@ -73,7 +73,10 @@ STORAGE_RESOURCE_GROUP = "rg-kevin.inofuente-7619"
 STORAGE_LOCATION = "eastus2"
 BLOB_CONTAINER = "base-conocimiento"
 
-KNOWLEDGE_SOURCE = "girardota-tramites-ks"
+# El embedding de un knowledge source es inmutable ("The embedding model configuration
+# cannot be changed"). Al pasar a KAIC se creó una fuente nueva con los embeddings de KAIC;
+# la anterior (girardota-tramites-ks, embeddings de datapath-inofuente) quedó huérfana.
+KNOWLEDGE_SOURCE = "girardota-tramites-kaic-ks"
 KNOWLEDGE_BASE = "girardota-kb"
 PROJECT_CONNECTION = "srch-alphastate-datapath"   # nombre de la conexión en el proyecto
 
