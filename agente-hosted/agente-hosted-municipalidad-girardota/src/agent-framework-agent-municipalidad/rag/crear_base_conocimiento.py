@@ -7,7 +7,7 @@ Pasos que ejecuta, todos idempotentes:
 1. Knowledge source `azureBlob` que apunta a ese contenedor. AI Search crea por
    dentro el índice, el skillset (chunking + embeddings con
    text-embedding-3-small) y el indexador.
-2. Knowledge base que agrupa la fuente y usa gpt-5-mini para planificar
+2. Knowledge base que agrupa la fuente y usa el chat model (CHAT_DEPLOYMENT) para planificar
    consultas (agentic retrieval), con instrucciones en español.
 3. Conexión "Azure AI Search" en el proyecto de Foundry (categoría
    CognitiveSearch, clave de API) para que la base aparezca en Compilación →
@@ -35,6 +35,7 @@ Ejecutar desde src/agent-framework-agent-municipalidad/:
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -43,17 +44,23 @@ from pathlib import Path
 import requests
 
 SUBSCRIPTION_ID = "57ff11aa-f7e9-4f80-a643-565666f00aed"
-RESOURCE_GROUP = "rg-kevin.inofuente-7619"
-FOUNDRY_ACCOUNT = "datapath-inofuente-resource"
-FOUNDRY_PROJECT = "datapath-inofuente"
-AOAI_ENDPOINT = "https://datapath-inofuente-resource.openai.azure.com/"
+
+# DESTINO: recurso y proyecto de Foundry donde vive el agente. Deben coincidir con
+# el endpoint de azure.yaml (verificar_destino() aborta si no). Cada recurso puede
+# estar en un resource group distinto: no asumas que comparten RG.
+FOUNDRY_RESOURCE_GROUP = "Datapath-ai-engineer-ka-ic"
+FOUNDRY_ACCOUNT = "Datapath-AI-Engineer-KAIC"
+FOUNDRY_PROJECT = "proj-ai-engineer-foundry"
+AOAI_ENDPOINT = "https://datapath-ai-engineer-kaic.openai.azure.com/"
 EMBEDDING_DEPLOYMENT = "text-embedding-3-small"
 EMBEDDING_MODEL = "text-embedding-3-small"
-CHAT_DEPLOYMENT = "gpt-5-mini"
-CHAT_MODEL = "gpt-5-mini"
+# gpt-5-mini no existe en KAIC (bloqueo 715-123420 al crearlo); gpt-5.4-mini sí.
+CHAT_DEPLOYMENT = "gpt-5.4-mini"
+CHAT_MODEL = "gpt-5.4-mini"
 
 # Servicio de búsqueda compartido del taller (Free, Brazil South). Puede estar en
-# una región distinta a la del Storage y a la de los modelos; no afecta.
+# una región y un RG distintos a los del proyecto de Foundry; no afecta.
+SEARCH_RESOURCE_GROUP = "rg-kevin.inofuente-7619"
 SEARCH_SERVICE = "srch-alphastate-datapath"
 SEARCH_ENDPOINT = f"https://{SEARCH_SERVICE}.search.windows.net"
 SEARCH_API_VERSION = "2026-08-01-preview"
@@ -62,6 +69,7 @@ SEARCH_LOCATION = "brazilsouth"
 # Storage propio de la alcaldía. El nombre es global: si ya existe en otra
 # suscripción, define STORAGE_ACCOUNT con otro valor antes de ejecutar.
 STORAGE_ACCOUNT = os.getenv("STORAGE_ACCOUNT", "stgirardotadatapath")
+STORAGE_RESOURCE_GROUP = "rg-kevin.inofuente-7619"
 STORAGE_LOCATION = "eastus2"
 BLOB_CONTAINER = "base-conocimiento"
 
@@ -76,11 +84,11 @@ EXCLUIDOS = {"leeme.md", "readme.md"}
 
 ARM = "https://management.azure.com"
 PROJECT_ARM_ID = (
-    f"/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}"
+    f"/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{FOUNDRY_RESOURCE_GROUP}"
     f"/providers/Microsoft.CognitiveServices/accounts/{FOUNDRY_ACCOUNT}/projects/{FOUNDRY_PROJECT}"
 )
 SEARCH_ARM_ID = (
-    f"/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}"
+    f"/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{SEARCH_RESOURCE_GROUP}"
     f"/providers/Microsoft.Search/searchServices/{SEARCH_SERVICE}"
 )
 ESPERA_INDEXACION_SEGUNDOS = 300
@@ -112,6 +120,51 @@ def get_search(ruta: str) -> dict:
     return r.json()
 
 
+def verificar_destino() -> None:
+    """Confirma que el script apunta al mismo recurso/proyecto de Foundry que el agente.
+
+    Con dos o más recursos de Foundry en la suscripción es fácil crear la base y la
+    conexión en el proyecto equivocado (la KB funciona, pero no aparece en
+    Compilación → Conocimiento del proyecto del agente). Compara las constantes con
+    el endpoint de azure.yaml, comprueba que el proyecto y los despliegues existen y
+    pide confirmación explícita antes de crear nada.
+    """
+    raiz = next((d for d in Path(__file__).resolve().parents if (d / "azure.yaml").exists()), None)
+    if raiz is None:
+        sys.exit("   No encontré azure.yaml: no puedo saber a qué proyecto apunta el agente. Abortando.")
+    m = re.search(r"https://([^.]+)\.services\.ai\.azure\.com/api/projects/([^\s/]+)", (raiz / "azure.yaml").read_text())
+    if m is None:
+        sys.exit("   azure.yaml no tiene un endpoint de proyecto de Foundry. Abortando.")
+    cuenta_yaml, proyecto_yaml = m.group(1), m.group(2)
+    if cuenta_yaml.lower() != FOUNDRY_ACCOUNT.lower() or proyecto_yaml != FOUNDRY_PROJECT:
+        sys.exit(
+            f"   DESTINO DISTINTO\n"
+            f"     azure.yaml (agente): {cuenta_yaml} / {proyecto_yaml}\n"
+            f"     este script       : {FOUNDRY_ACCOUNT} / {FOUNDRY_PROJECT}\n"
+            f"   Corrige FOUNDRY_* en la cabecera del script (o el endpoint de azure.yaml). Abortando."
+        )
+    try:
+        az("cognitiveservices", "account", "show", "-n", FOUNDRY_ACCOUNT, "-g", FOUNDRY_RESOURCE_GROUP, "--query", "id")
+        despliegues = set(az("cognitiveservices", "account", "deployment", "list", "-n", FOUNDRY_ACCOUNT,
+                             "-g", FOUNDRY_RESOURCE_GROUP, "--query", "[].name").split())
+        az("search", "service", "show", "-n", SEARCH_SERVICE, "-g", SEARCH_RESOURCE_GROUP, "--query", "id")
+    except subprocess.CalledProcessError as e:
+        sys.exit(f"   No encontré un recurso del destino (revisa nombres y resource groups): {e.stderr.strip()[:300]}")
+    faltan = {EMBEDDING_DEPLOYMENT, CHAT_DEPLOYMENT} - despliegues
+    if faltan:
+        sys.exit(f"   Faltan despliegues en {FOUNDRY_ACCOUNT}: {sorted(faltan)}. Disponibles: {sorted(despliegues)}")
+
+    print("   Destino de la base de conocimiento:")
+    print(f"     Suscripción     : {SUBSCRIPTION_ID}")
+    print(f"     Foundry         : {FOUNDRY_ACCOUNT} (RG {FOUNDRY_RESOURCE_GROUP}) / proyecto {FOUNDRY_PROJECT}")
+    print(f"     Modelos         : {EMBEDDING_DEPLOYMENT} + {CHAT_DEPLOYMENT}")
+    print(f"     AI Search       : {SEARCH_SERVICE} (RG {SEARCH_RESOURCE_GROUP})")
+    print(f"     Storage         : {STORAGE_ACCOUNT} (RG {STORAGE_RESOURCE_GROUP})")
+    print(f"     KS / KB         : {KNOWLEDGE_SOURCE} / {KNOWLEDGE_BASE}")
+    if "--yes" not in sys.argv and input("   ¿Es el proyecto correcto? (s/N): ").strip().lower() not in {"s", "si", "sí", "y", "yes"}:
+        sys.exit("   Cancelado por el usuario.")
+
+
 def subir_documentos() -> int:
     """Crea storage + contenedor si faltan y sube la carpeta 'Base de Conocimiento'."""
     documentos = sorted(
@@ -122,10 +175,10 @@ def subir_documentos() -> int:
         print(f"   No hay documentos en '{CARPETA_DOCUMENTOS}'. Copia ahí los PDF oficiales y vuelve a ejecutar.")
         sys.exit(1)
 
-    existe = az("storage", "account", "list", "-g", RESOURCE_GROUP, "--query", f"[?name=='{STORAGE_ACCOUNT}'].name")
+    existe = az("storage", "account", "list", "-g", STORAGE_RESOURCE_GROUP, "--query", f"[?name=='{STORAGE_ACCOUNT}'].name")
     if not existe:
         print(f"   Creando cuenta de almacenamiento '{STORAGE_ACCOUNT}'...")
-        az("storage", "account", "create", "-n", STORAGE_ACCOUNT, "-g", RESOURCE_GROUP, "-l", STORAGE_LOCATION,
+        az("storage", "account", "create", "-n", STORAGE_ACCOUNT, "-g", STORAGE_RESOURCE_GROUP, "-l", STORAGE_LOCATION,
            "--sku", "Standard_LRS", "--kind", "StorageV2", "--min-tls-version", "TLS1_2",
            "--allow-blob-public-access", "false")
     # --auth-mode key: ser Owner no concede roles de datos de blob.
@@ -138,14 +191,17 @@ def subir_documentos() -> int:
 
 
 def main() -> None:
+    print("-) Verificando el destino...")
+    verificar_destino()
+
     print(f"0) Storage '{STORAGE_ACCOUNT}/{BLOB_CONTAINER}' y subida de documentos...")
     total = subir_documentos()
     print(f"   {total} documento(s) en el contenedor.")
 
     print("1) Obteniendo claves (no se muestran)...")
-    storage_cs = az("storage", "account", "show-connection-string", "-n", STORAGE_ACCOUNT, "-g", RESOURCE_GROUP, "--query", "connectionString")
-    aoai_key = az("cognitiveservices", "account", "keys", "list", "-n", FOUNDRY_ACCOUNT, "-g", RESOURCE_GROUP, "--query", "key1")
-    search_admin_key = az("search", "admin-key", "show", "--service-name", SEARCH_SERVICE, "-g", RESOURCE_GROUP, "--query", "primaryKey")
+    storage_cs = az("storage", "account", "show-connection-string", "-n", STORAGE_ACCOUNT, "-g", STORAGE_RESOURCE_GROUP, "--query", "connectionString")
+    aoai_key = az("cognitiveservices", "account", "keys", "list", "-n", FOUNDRY_ACCOUNT, "-g", FOUNDRY_RESOURCE_GROUP, "--query", "key1")
+    search_admin_key = az("search", "admin-key", "show", "--service-name", SEARCH_SERVICE, "-g", SEARCH_RESOURCE_GROUP, "--query", "primaryKey")
 
     print(f"2) Knowledge source '{KNOWLEDGE_SOURCE}' (blob {STORAGE_ACCOUNT}/{BLOB_CONTAINER})...")
     ks = put_search(f"knowledgesources/{KNOWLEDGE_SOURCE}", {
@@ -260,7 +316,7 @@ def main() -> None:
 
     print()
     print("7) Falta conceder 'Search Index Data Reader' (retrieve da 403 aunque seas Owner):")
-    print(f'   SEARCH_ID=$(az search service show -n {SEARCH_SERVICE} -g {RESOURCE_GROUP} --query id -o tsv)')
+    print(f'   SEARCH_ID=$(az search service show -n {SEARCH_SERVICE} -g {SEARCH_RESOURCE_GROUP} --query id -o tsv)')
     print('   az role assignment create --assignee-object-id $(az ad signed-in-user show --query id -o tsv) \\')
     print('     --assignee-principal-type User --role "Search Index Data Reader" --scope "$SEARCH_ID"')
     print('   # identidad de instancia del agente hospedado (azd ai agent show → Instance Identity Principal ID):')

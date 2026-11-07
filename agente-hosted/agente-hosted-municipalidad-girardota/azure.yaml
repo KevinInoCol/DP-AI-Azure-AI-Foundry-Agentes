@@ -38,7 +38,7 @@ services:
         # Para volver a aplicarlo, descomenta:
         # policies:
         #     - type: rai_policy
-        #       raiPolicyName: /subscriptions/57ff11aa-f7e9-4f80-a643-565666f00aed/resourceGroups/rg-kevin.inofuente-7619/providers/Microsoft.CognitiveServices/accounts/datapath-inofuente-resource/raiPolicies/munipalidad-girardota-guardrail
+        #       raiPolicyName: /subscriptions/57ff11aa-f7e9-4f80-a643-565666f00aed/resourceGroups/Datapath-ai-engineer-ka-ic/providers/Microsoft.CognitiveServices/accounts/Datapath-AI-Engineer-KAIC/raiPolicies/munipalidad-girardota-guardrail
         metadata:
             tags:
                 - Agent Framework
@@ -70,6 +70,8 @@ services:
               sku:
                 capacity: 50
                 name: DataZoneStandard
-        endpoint: https://datapath-inofuente-resource.services.ai.azure.com/api/projects/datapath-inofuente
+            # La Memoria de Foundry usa el despliegue gpt-5 ya existente en Datapath-AI-Engineer-KAIC
+            # (crear gpt-5-mini aqui fallo el 2026-11-06 con el bloqueo 715-123420 de Azure).
+        endpoint: https://datapath-ai-engineer-kaic.services.ai.azure.com/api/projects/proj-ai-engineer-foundry
 infra:
     provider: microsoft.foundry

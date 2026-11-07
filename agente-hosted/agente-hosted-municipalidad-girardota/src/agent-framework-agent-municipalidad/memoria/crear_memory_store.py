@@ -57,7 +57,8 @@ def main() -> None:
             pass
 
         definicion = MemoryStoreDefaultDefinition(
-            chat_model=cfg["chat_model"],
+            # MEMORY_CHAT_MODEL permite usar otro despliegue si el del YAML no existe en el proyecto.
+            chat_model=os.getenv("MEMORY_CHAT_MODEL") or cfg["chat_model"],
             embedding_model=cfg["embedding_model"],
             options=MemoryStoreDefaultOptions(
                 user_profile_enabled=True,

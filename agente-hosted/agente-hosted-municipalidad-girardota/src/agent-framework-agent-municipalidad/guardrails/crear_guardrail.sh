@@ -13,8 +13,8 @@
 set -euo pipefail
 
 SUBSCRIPTION_ID="57ff11aa-f7e9-4f80-a643-565666f00aed"
-RESOURCE_GROUP="rg-kevin.inofuente-7619"
-FOUNDRY_ACCOUNT="datapath-inofuente-resource"
+RESOURCE_GROUP="Datapath-ai-engineer-ka-ic"
+FOUNDRY_ACCOUNT="Datapath-AI-Engineer-KAIC"
 POLITICA="munipalidad-girardota-guardrail"
 API_VERSION="2025-06-01"
 

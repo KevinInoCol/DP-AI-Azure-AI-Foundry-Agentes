@@ -24,6 +24,23 @@ API REST de AI Search: `2026-08-01-preview` (planificación de consultas y salid
 - Proyecto de Foundry con un despliegue de **embeddings** (`text-embedding-3-small`) y un **chat model** soportado para la KB (gpt-5-mini, gpt-5.4-mini, gpt-4.1-mini…).
 - Python 3.13 con `requests`, `azure-identity`, `pyyaml`; el SDK `azure-search-documents --pre` es opcional (las plantillas usan REST).
 
+## Paso 0: Confirmar el destino (OBLIGATORIO, antes de crear nada)
+
+Una suscripción puede tener **varios recursos de Foundry** (p. ej. `datapath-inofuente-resource` y `Datapath-AI-Engineer-KAIC`). Si el script apunta al recurso equivocado, la KB se crea y el agente hasta puede consultarla, pero la **conexión queda en otro proyecto** y en Compilación → Conocimiento del proyecto del agente solo aparece "Conexión a un recurso de AI Search para empezar". Pasó el 2026-11-06 al mover el agente de Girardota a KAIC: el script conservaba las constantes del recurso anterior.
+
+1. **Lee el destino del agente**, no lo supongas: endpoint de `azure.yaml` (`services.ai-project.endpoint` → `https://<recurso>.services.ai.azure.com/api/projects/<proyecto>`), `.env` local y `azd env get-values`. Si hay un `CLAUDE.md`/bitácora con un "DESTINO ACTUAL", contrástalo.
+2. **Lista lo que hay** y resuelve el RG real de cada recurso (no asumas que comparten RG):
+   ```bash
+   az cognitiveservices account list --query "[?kind=='AIServices'].{name:name,rg:resourceGroup,loc:location}" -o table
+   az search service list --query "[].{name:name,rg:resourceGroup,sku:sku.name}" -o table   # el AI Search puede estar en otro RG
+   az cognitiveservices account deployment list -n <recurso> -g <rg> --query "[].name" -o tsv  # embeddings + chat existen AQUÍ
+   ```
+3. **Pregunta al usuario** (AskUserQuestion) recurso + proyecto cuando haya más de un recurso de Foundry, o cuando `azure.yaml` y las constantes del script no coincidan. Nunca reutilices las constantes de otro agente/proyecto sin confirmarlo.
+4. Ajusta en la cabecera del script `FOUNDRY_RESOURCE_GROUP`, `FOUNDRY_ACCOUNT`, `FOUNDRY_PROJECT`, `AOAI_ENDPOINT`, `CHAT_DEPLOYMENT` (que exista en ese recurso), `SEARCH_RESOURCE_GROUP` y `STORAGE_RESOURCE_GROUP`.
+5. El script ejecuta `verificar_destino()` antes de crear nada: compara con `azure.yaml`, comprueba que recurso, despliegues y AI Search existen, imprime el destino y pide confirmación (`--yes` para omitirla tras confirmar con el usuario).
+
+Si la KB ya existe en un AI Search compartido y solo cambió el proyecto del agente, **vuelve a correr el script con el destino nuevo** (todo es `PUT` idempotente): actualiza el modelo de planificación de la KB y crea la conexión en el proyecto correcto, sin reindexar desde cero.
+
 ## Paso 1: Storage y subida del documento
 
 ```bash
@@ -62,7 +79,7 @@ curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer $TOKEN" "http
 
 ## Paso 3: Knowledge source + knowledge base + conexión (script)
 
-Copia `templates/crear_base_conocimiento.py` a `rag/` del agente, ajusta las constantes (suscripción, RG, recurso y proyecto de Foundry, endpoint `https://<recurso>.openai.azure.com/`, despliegues de embedding y chat, nombre del servicio de búsqueda, storage, contenedor, nombres de KS/KB/conexión) y ejecútalo con el venv del agente. Es idempotente (todo son `PUT`).
+Copia `templates/crear_base_conocimiento.py` a `rag/` del agente, ajusta las constantes con el destino confirmado en el Paso 0 (suscripción, RG de cada recurso, recurso y proyecto de Foundry, endpoint `https://<recurso>.openai.azure.com/`, despliegues de embedding y chat, nombre del servicio de búsqueda, storage, contenedor, nombres de KS/KB/conexión) y ejecútalo con el venv del agente. Es idempotente (todo son `PUT`).
 
 Qué hace:
 1. Obtiene con `az` (sin imprimir) la connection string del Storage, la clave del recurso de Foundry y la admin key del servicio de búsqueda. Necesarias porque el nivel Free no tiene identidad administrada.
@@ -133,7 +150,8 @@ Reglas que evitan errores reales:
 | `retrieve` → 403 | Falta Search Index Data Reader | Paso 4 y esperar propagación |
 | `retrieve` → 400 `max output size must be greater than 5000` | `maxOutputSize` bajo | ≥ 5001 (plantilla usa 8000) |
 | `azd deploy` → `String length N exceeds maximum 512, param description` | Descripción del servicio en azure.yaml muy larga | Acortar `services.<svc>.description` a < 512 caracteres |
-| La KB no aparece en Compilación → Conocimiento | Falta la conexión del proyecto | Paso 3.4 (category CognitiveSearch) |
+| La KB no aparece en Compilación → Conocimiento | Falta la conexión del proyecto, o se creó en **otro** recurso/proyecto de Foundry | Paso 0 (confirmar destino) y volver a correr el script; verifica con `az rest --method get --url "https://management.azure.com<PROJECT_ARM_ID>/connections?api-version=2025-06-01"` |
+| `DESTINO DISTINTO` al ejecutar el script | Constantes del script ≠ endpoint de `azure.yaml` | Corregir `FOUNDRY_*` (Paso 0) |
 | Indexador `success` pero `documentCount: 0` | Contenedor vacío o formato no soportado | Revisa el blob y `lastResult.errors` |
 
 ## Referencias

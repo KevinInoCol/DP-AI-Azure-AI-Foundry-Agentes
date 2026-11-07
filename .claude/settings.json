@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/verificar_destino_foundry.py\"",
+            "timeout": 180
+          }
+        ]
+      }
+    ]
+  }
+}

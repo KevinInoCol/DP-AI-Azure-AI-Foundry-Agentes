@@ -28,6 +28,24 @@ Con `--deploy-mode code` no hace falta Docker ni Azure Container Registry: azd s
 
 Los scripts `scripts/install-prereqs.sh` (macOS/Linux) y `scripts/install-prereqs.ps1` (Windows) instalan lo que falte y configuran la autenticación del paso 1.
 
+## Paso 0: Confirmar el destino — recurso y proyecto de Foundry (OBLIGATORIO)
+
+Una suscripción puede tener **varios recursos de Foundry** (en la del taller: `datapath-inofuente-resource` y `Datapath-AI-Engineer-KAIC`). El 2026-11-06 se redesplegó el agente de Girardota en el recurso anterior y se informó "desplegado" cuando el usuario lo quería en KAIC; después, la base de conocimiento quedó conectada al proyecto equivocado porque `rag/crear_base_conocimiento.py` conservaba constantes viejas. `azd deploy` no avisa: despliega donde digan `azure.yaml` y el entorno azd por defecto.
+
+Antes de `azd ai agent init`, `azd provision`, `azd deploy` o cualquier script auxiliar (memoria, guardrail, RAG):
+
+1. **Pregunta al usuario** (AskUserQuestion) en qué recurso y proyecto debe vivir el agente, salvo que lo haya dicho explícitamente en esta conversación. Si hay una bitácora (`CLAUDE.md`) con un "DESTINO ACTUAL", contrástala, pero la palabra del usuario manda. Un despliegue anterior no es una indicación del destino actual.
+2. **Ejecuta el verificador** desde la carpeta de `azure.yaml`, pasando lo que confirmó el usuario:
+   ```bash
+   # La carpeta de esta skill: .claude/skills/azure-foundry-hosted-agent-deploy en el repo del taller,
+   # o ~/.claude/skills/azure-foundry-hosted-agent-deploy si la tienes instalada como skill global.
+   bash <carpeta-de-la-skill>/scripts/verificar_destino.sh <recurso> <proyecto>
+   ```
+   En repos con el hook `.claude/hooks/verificar_destino_foundry.py` (ADR 0003), `azd provision/deploy/up` y los scripts auxiliares quedan bloqueados automáticamente si el destino es inconsistente.
+   Compara: endpoint de `azure.yaml`, entorno azd por defecto (`FOUNDRY_PROJECT_ENDPOINT`, `AZURE_AI_PROJECT_ENDPOINT`, `AZURE_AI_PROJECT_ID`, `AZURE_RESOURCE_GROUP`), los `.env` locales y las constantes `FOUNDRY_ACCOUNT`/`FOUNDRY_PROJECT`/`RESOURCE_GROUP` de los scripts (`rag/`, `guardrails/`, `memoria/`). También lista los recursos de Foundry de la suscripción y los despliegues de modelo del destino. Sale con código 1 si algo no coincide.
+3. **Si falla, corrige antes de seguir:** `azd env select <entorno>` o crea uno nuevo para el recurso nuevo (`azd env new <nombre>` + `azd env set AZURE_AI_PROJECT_ID ...`); el endpoint de `azure.yaml`; las constantes de cada script, cada uno con el **RG real de su recurso** (Foundry y AI Search pueden estar en RGs distintos); y la ruta de la política RAI en `policies`.
+4. **Al mover un agente a otro recurso**, el cambio no termina con `azd deploy`. Recorre también: despliegues de modelo (Paso 7), memory store (`memoria/crear_memory_store.py`), guardrail (`guardrails/crear_guardrail.sh`), base de conocimiento y su conexión `CognitiveSearch` (skill `azure-foundry-knowledge-base`, que tiene su propio Paso 0), roles RBAC de las identidades **nuevas** del proyecto y del agente, y el `.env` de la app de consumo.
+
 ## Paso 1: Autenticación de azd sin abrir el navegador
 
 `azd` tiene su propio login. En lugar de `azd auth login` (abre navegador y puede caer en un tenant corporativo equivocado), haz que reutilice la sesión de Azure CLI:
@@ -174,6 +192,8 @@ Detén el servidor antes de desplegar: `lsof -ti :8088 | xargs kill` (macOS/Linu
 
 ## Paso 10: Desplegar y verificar
 
+Vuelve a ejecutar `scripts/verificar_destino.sh <recurso> <proyecto>` justo antes de desplegar (el entorno azd o `azure.yaml` pueden haber cambiado desde el Paso 0). Solo continúa si termina en "Destino coherente".
+
 ```bash
 AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd deploy --no-prompt        # ~2-3 min
 AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd ai agent show --output json  # status: active + playground_url
@@ -181,6 +201,8 @@ AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd ai agent invoke "¿Qué puedes 
 ```
 
 La primera respuesta remota tarda 10 a 20 s por arranque en frío; es normal.
+
+Después del deploy, confirma que el agente quedó en el proyecto correcto: el `playground_url` y el endpoint de `azd ai agent show` deben contener `<recurso-en-minúsculas>.services.ai.azure.com/api/projects/<proyecto>`. Si no, **no informes "desplegado"**: informa dónde quedó y corrige el destino.
 
 ## Paso 11: Evaluación (opcional, asíncrona)
 
@@ -192,7 +214,7 @@ azd ai agent eval run
 
 ## Resumen final que debes entregar al usuario
 
-Nombre y versión del agente, estado, URL del playground (sale en `azd ai agent show`), endpoint `responses`, modelo y SKU desplegados, carpeta del código y los comandos de seguimiento:
+**Recurso de Foundry, resource group y proyecto donde quedó desplegado** (comprobados con `azd ai agent show`, no supuestos), nombre y versión del agente, estado, URL del playground (sale en `azd ai agent show`), endpoint `responses`, modelo y SKU desplegados, carpeta del código y los comandos de seguimiento:
 
 ```bash
 azd ai agent invoke "mensaje"    # chatear con el agente desplegado
@@ -205,6 +227,7 @@ azd down                         # eliminar todo al terminar
 
 | Síntoma | Causa | Solución |
 |---|---|---|
+| El agente / la KB / la memoria aparecen en otro proyecto del portal | Varios recursos de Foundry y una fuente desalineada (entorno azd por defecto, `azure.yaml`, `.env` o constantes de un script) | Paso 0: `scripts/verificar_destino.sh <recurso> <proyecto>`, corregir lo marcado con ❌ y volver a desplegar o ejecutar el script |
 | `Not logged in, run azd auth login` | azd no comparte sesión con az | `azd config set auth.useAzCliAuth true` |
 | `azd provision` falla por cuota / `InsufficientQuota` | SKU de la plantilla sin cuota | Paso 4: cambiar `sku.name` en `azure.yaml` y volver a aprovisionar |
 | `--runtime must be one of: python_3_13, python_3_14, dotnet_10` | Se pasó `python` | Usar el token completo |
